@@ -70,11 +70,9 @@ def filterEnums(child, customBuild):
     child.kind == clang.cindex.CursorKind.ENUM_DECL
   )
 
-def processChildren(generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customCode):
-  tu = parse(customCode or "")
+def processChildren(tu, generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customBuild: bool):
   children = list(generator(tu))
 
-  customBuild = customCode is not None
   for child in children:
     if not filterFunction(child, customBuild) or child.spelling == "":
       continue
@@ -155,10 +153,10 @@ def allChildrenGenerator(tu):
 def enumGenerator(tu):
   return list(filter(lambda x: x.kind == clang.cindex.CursorKind.ENUM_DECL and filterEnum(x), tu.cursor.get_children()))
 
-def process(extension, embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, preamble, customCode):
-  processChildren(allChildrenGenerator, extension, filterClasses, embindGenerationFuncClasses, typedefGenerator, templateTypedefGenerator, preamble, customCode)
-  processChildren(templateTypedefGenerator, extension, filterTemplates, embindGenerationFuncTemplates, typedefGenerator, templateTypedefGenerator, preamble, customCode)
-  processChildren(enumGenerator, extension, filterEnums, embindGenerationFuncEnums, typedefGenerator, templateTypedefGenerator, preamble, customCode)
+def process(tu, extension, embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, preamble, customBuild):
+  processChildren(tu, allChildrenGenerator, extension, filterClasses, embindGenerationFuncClasses, typedefGenerator, templateTypedefGenerator, preamble, customBuild)
+  processChildren(tu, templateTypedefGenerator, extension, filterTemplates, embindGenerationFuncTemplates, typedefGenerator, templateTypedefGenerator, preamble, customBuild)
+  processChildren(tu, enumGenerator, extension, filterEnums, embindGenerationFuncEnums, typedefGenerator, templateTypedefGenerator, preamble, customBuild)
 
 def typescriptGenerationFuncClasses(tu, preamble, child, typedefs, templateTypedefs) -> str:
   typescript = TypescriptBindings(typedefs, templateTypedefs, tu)
@@ -242,8 +240,9 @@ def generateCustomCodeBindings(customCode):
 
   embindPreamble = ocIncludeStatements + "\n" + referenceTypeTemplateDefs + "\n" + customCode
 
-  process(".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, customCode)
-  process(".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", customCode)
+  tu = parse(customCode)
+  process(tu, ".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, True)
+  process(tu, ".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", True)
 
 if __name__ == "__main__":
   try:
@@ -251,7 +250,9 @@ if __name__ == "__main__":
   except Exception:
     pass
 
-  embindPreamble = ocIncludeStatements + "\n" + referenceTypeTemplateDefs
-  process(".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, None)
+  tu = parse("")
 
-  process(".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", None)
+  embindPreamble = ocIncludeStatements + "\n" + referenceTypeTemplateDefs
+  process(tu, ".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, False)
+
+  process(tu, ".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", False)
