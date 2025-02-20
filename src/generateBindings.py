@@ -70,7 +70,7 @@ def filterEnums(child, customBuild):
     child.kind == clang.cindex.CursorKind.ENUM_DECL
   )
 
-def processChildBatch(generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customCode):
+def processChildren(generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customCode):
   tu = parse(customCode or "")
   children = list(generator(tu))
 
@@ -98,9 +98,6 @@ def processChildBatch(generator, extension: str, filterFunction: Callable[[any],
 def split(a, n):
   k, m = divmod(len(a), n)
   return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
-
-def processChildren(generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefs: any, templateTypedefs: any, preamble: str, customCode):
-  processChildBatch(generator, extension, filterFunction, processFunction, typedefs, templateTypedefs, preamble, customCode)
 
 def processTemplate(child):
   templateRefs = list(filter(lambda x: x.kind == clang.cindex.CursorKind.TEMPLATE_REF, child.get_children()))
