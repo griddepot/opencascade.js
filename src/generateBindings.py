@@ -70,9 +70,7 @@ def filterEnums(child, customBuild):
     child.kind == clang.cindex.CursorKind.ENUM_DECL
   )
 
-def processChildren(tu, generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customBuild: bool):
-  children = list(generator(tu))
-
+def processChildren(tu, children, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefs: any, templateTypedefs: any, preamble: str, customBuild: bool):
   for child in children:
     if not filterFunction(child, customBuild) or child.spelling == "":
       continue
@@ -85,7 +83,7 @@ def processChildren(tu, generator, extension: str, filterFunction: Callable[[any
     if not os.path.exists(filename):
       print("Processing " + child.spelling)
       try:
-        output = processFunction(tu, preamble, child, typedefGenerator(tu), templateTypedefGenerator(tu))
+        output = processFunction(tu, preamble, child, typedefs, templateTypedefs)
         bindingsFile = open(filename, "w")
         bindingsFile.write(output)
       except SkipException as e:
@@ -154,9 +152,11 @@ def enumGenerator(tu):
   return list(filter(lambda x: x.kind == clang.cindex.CursorKind.ENUM_DECL and filterEnum(x), tu.cursor.get_children()))
 
 def process(tu, extension, embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, preamble, customBuild):
-  processChildren(tu, allChildrenGenerator, extension, filterClasses, embindGenerationFuncClasses, typedefGenerator, templateTypedefGenerator, preamble, customBuild)
-  processChildren(tu, templateTypedefGenerator, extension, filterTemplates, embindGenerationFuncTemplates, typedefGenerator, templateTypedefGenerator, preamble, customBuild)
-  processChildren(tu, enumGenerator, extension, filterEnums, embindGenerationFuncEnums, typedefGenerator, templateTypedefGenerator, preamble, customBuild)
+  typedefs = typedefGenerator(tu)
+  templateTypedefs = templateTypedefGenerator(tu)
+  processChildren(tu, allChildrenGenerator(tu), extension, filterClasses, embindGenerationFuncClasses, typedefs, templateTypedefs, preamble, customBuild)
+  processChildren(tu, templateTypedefs, extension, filterTemplates, embindGenerationFuncTemplates, typedefs, templateTypedefs, preamble, customBuild)
+  processChildren(tu, enumGenerator(tu), extension, filterEnums, embindGenerationFuncEnums, typedefs, templateTypedefs, preamble, customBuild)
 
 def typescriptGenerationFuncClasses(tu, preamble, child, typedefs, templateTypedefs) -> str:
   typescript = TypescriptBindings(typedefs, templateTypedefs, tu)
