@@ -70,9 +70,9 @@ def filterEnums(child, customBuild):
     child.kind == clang.cindex.CursorKind.ENUM_DECL
   )
 
-def processChildBatch(customCode, generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customBuild: bool, batch):
+def processChildBatch(customCode, generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customBuild: bool):
   tu = parse(customCode)
-  children = list(generator(tu)[batch.start:batch.stop])
+  children = list(generator(tu))
 
   for child in children:
     if not filterFunction(child, customBuild) or child.spelling == "":
@@ -99,15 +99,7 @@ def split(a, n):
   return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
 
 def processChildren(generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefs: any, templateTypedefs: any, preamble: str, customCode, customBuild):
-  tu = parse(customCode)
-  func = partial(processChildBatch, customCode, generator, extension, filterFunction, processFunction, typedefs, templateTypedefs, preamble, customBuild)
-  if not customBuild:
-    numthreads = multiprocessing.cpu_count()
-    batches = split(range(len(generator(tu))), numthreads)
-    with multiprocessing.Pool(processes=numthreads) as p:
-      p.map(func, batches)
-  else:
-    func(range(len(generator(tu))))
+  processChildBatch(customCode, generator, extension, filterFunction, processFunction, typedefs, templateTypedefs, preamble, customBuild)
 
 def processTemplate(child):
   templateRefs = list(filter(lambda x: x.kind == clang.cindex.CursorKind.TEMPLATE_REF, child.get_children()))
