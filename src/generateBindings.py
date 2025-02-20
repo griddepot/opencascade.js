@@ -70,7 +70,7 @@ def filterEnums(child, customBuild):
     child.kind == clang.cindex.CursorKind.ENUM_DECL
   )
 
-def processChildBatch(customCode, generator, buildType: str, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customBuild: bool, batch):
+def processChildBatch(customCode, generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefGenerator: any, templateTypedefGenerator: any, preamble: str, customBuild: bool, batch):
   tu = parse(customCode)
   children = list(generator(tu)[batch.start:batch.stop])
 
@@ -79,9 +79,9 @@ def processChildBatch(customCode, generator, buildType: str, extension: str, fil
       continue
 
     relOcFileName: str = child.extent.start.file.name.replace(occtBasePath, "")
-    mkdirp(buildDirectory + "/" + buildType + "/" + os.path.dirname(relOcFileName))
-    mkdirp(buildDirectory + "/" + buildType + "/" + relOcFileName)
-    filename = buildDirectory + "/" + buildType + "/" + relOcFileName + "/" + (child.spelling if not child.spelling == "" else child.type.spelling) + extension
+    mkdirp(buildDirectory + "/bindings/" + os.path.dirname(relOcFileName))
+    mkdirp(buildDirectory + "/bindings/" + relOcFileName)
+    filename = buildDirectory + "/bindings/" + relOcFileName + "/" + (child.spelling if not child.spelling == "" else child.type.spelling) + extension
 
     if not os.path.exists(filename):
       print("Processing " + child.spelling)
@@ -98,9 +98,9 @@ def split(a, n):
   k, m = divmod(len(a), n)
   return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
 
-def processChildren(generator, buildType: str, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefs: any, templateTypedefs: any, preamble: str, customCode, customBuild):
+def processChildren(generator, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefs: any, templateTypedefs: any, preamble: str, customCode, customBuild):
   tu = parse(customCode)
-  func = partial(processChildBatch, customCode, generator, buildType, extension, filterFunction, processFunction, typedefs, templateTypedefs, preamble, customBuild)
+  func = partial(processChildBatch, customCode, generator, extension, filterFunction, processFunction, typedefs, templateTypedefs, preamble, customBuild)
   if not customBuild:
     numthreads = multiprocessing.cpu_count()
     batches = split(range(len(generator(tu))), numthreads)
@@ -166,9 +166,9 @@ def enumGenerator(tu):
   return list(filter(lambda x: x.kind == clang.cindex.CursorKind.ENUM_DECL and filterEnum(x), tu.cursor.get_children()))
 
 def process(extension, embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, preamble, customCode, customBuild):
-  processChildren(allChildrenGenerator, "bindings", extension, filterClasses, embindGenerationFuncClasses, typedefGenerator, templateTypedefGenerator, preamble, customCode, customBuild)
-  processChildren(templateTypedefGenerator, "bindings", extension, filterTemplates, embindGenerationFuncTemplates, typedefGenerator, templateTypedefGenerator, preamble, customCode, customBuild)
-  processChildren(enumGenerator, "bindings", extension, filterEnums, embindGenerationFuncEnums, typedefGenerator, templateTypedefGenerator, preamble, customCode, customBuild)
+  processChildren(allChildrenGenerator, extension, filterClasses, embindGenerationFuncClasses, typedefGenerator, templateTypedefGenerator, preamble, customCode, customBuild)
+  processChildren(templateTypedefGenerator, extension, filterTemplates, embindGenerationFuncTemplates, typedefGenerator, templateTypedefGenerator, preamble, customCode, customBuild)
+  processChildren(enumGenerator, extension, filterEnums, embindGenerationFuncEnums, typedefGenerator, templateTypedefGenerator, preamble, customCode, customBuild)
 
 def typescriptGenerationFuncClasses(tu, preamble, child, typedefs, templateTypedefs) -> str:
   typescript = TypescriptBindings(typedefs, templateTypedefs, tu)
