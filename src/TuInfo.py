@@ -1,5 +1,5 @@
 import clang.cindex
-from Common import includePathArgs, ocIncludeStatements
+from Common import includePathArgs, ocIncludeStatements, occtBasePath
 from filter.filterTypedefs import filterTypedef
 from filter.filterEnums import filterEnum
 from wasmGenerator.Common import ignoreDuplicateTypedef
@@ -57,6 +57,16 @@ def classDict(tu):
         d[x.spelling] = x
   return d
 
+def underlyingDict(l, checkOcctBasePath: bool):
+  d = dict()
+  for x in l:
+    if checkOcctBasePath and not x.location.file.name.startswith(occtBasePath):
+      continue
+    if x.underlying_typedef_type.spelling not in d:
+      # Original code didn't handle duplicate names, that seems bad?
+      d[x.underlying_typedef_type.spelling] = x
+  return d
+
 
 class TuInfo:
   def __init__(self, customCode):
@@ -66,3 +76,5 @@ class TuInfo:
     self.enums = enumGenerator(self.tu)
     self.templateTypedefs = templateTypedefGenerator(self.tu)
     self.classDict = classDict(self.tu)
+    self.typedefUnderlyingDict = underlyingDict(self.typedefs, True)
+    self.templateTypedefUnderlyingDict = underlyingDict(self.templateTypedefs, False)
