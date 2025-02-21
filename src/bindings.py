@@ -107,7 +107,7 @@ class Bindings:
 
   def processClass(self, theClass, templateDecl = None, templateArgs = None):
     output = ""
-    isAbstract = isAbstractClass(theClass, self.tuInfo.tu)
+    isAbstract = isAbstractClass(theClass, self.tuInfo.classDict)
     if not isAbstract:
       output += self.processSimpleConstructor(theClass)
     for method in theClass.get_children():
