@@ -5,20 +5,16 @@ from bindings import EmbindBindings, TypescriptBindings, shouldProcessClass
 import clang.cindex
 import os
 import errno
-from filter.filterTypedefs import filterTypedef
-from filter.filterEnums import filterEnum
-from wasmGenerator.Common import ignoreDuplicateTypedef, SkipException
-from Common import ocIncludeFiles, includePathArgs
+from wasmGenerator.Common import SkipException
+from Common import ocIncludeStatements
 import json
-import multiprocessing
 import os
 from filter.filterPackages import filterPackages
-from functools import partial
+from TuInfo import TuInfo
 
 libraryBasePath = "/opencascade.js/build/bindings"
 buildDirectory = "/opencascade.js/build"
 occtBasePath = "/occt/src/"
-ocIncludeStatements = os.linesep.join(map(lambda x: "#include \"" + os.path.basename(x) + "\"", list(sorted(ocIncludeFiles))))
 
 def mkdirp(name: str) -> None:
   try:
@@ -70,7 +66,7 @@ def filterEnums(child, customBuild):
     child.kind == clang.cindex.CursorKind.ENUM_DECL
   )
 
-def processChildren(tu, children, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], typedefs: any, templateTypedefs: any, preamble: str, customBuild: bool):
+def processChildren(tuInfo: TuInfo, children, extension: str, filterFunction: Callable[[any], bool], processFunction: Callable[[any, any], str], preamble: str, customBuild: bool):
   for child in children:
     if not filterFunction(child, customBuild) or child.spelling == "":
       continue
@@ -83,7 +79,7 @@ def processChildren(tu, children, extension: str, filterFunction: Callable[[any]
     if not os.path.exists(filename):
       print("Processing " + child.spelling)
       try:
-        output = processFunction(tu, preamble, child, typedefs, templateTypedefs)
+        output = processFunction(tuInfo, preamble, child)
         bindingsFile = open(filename, "w")
         bindingsFile.write(output)
       except SkipException as e:
@@ -113,53 +109,32 @@ def processTemplate(child):
   
   return [templateClass, templateArgs]
 
-def embindGenerationFuncClasses(tu, preamble, child, typedefs, templateTypedefs) -> str:
-  embindings = EmbindBindings(typedefs, templateTypedefs, tu)
+def embindGenerationFuncClasses(tuInfo: TuInfo, preamble, child) -> str:
+  embindings = EmbindBindings(tuInfo)
   output = embindings.processClass(child)
 
   return preamble + output
 
-def embindGenerationFuncTemplates(tu, preamble, child, typedefs, templateTypedefs) -> str:
+def embindGenerationFuncTemplates(tuInfo: TuInfo, preamble, child) -> str:
   [templateClass, templateArgs] = processTemplate(child)
-  embindings = EmbindBindings(typedefs, templateTypedefs, tu)
+  embindings = EmbindBindings(tuInfo)
   output = embindings.processClass(templateClass, child, templateArgs)
 
   return preamble + output
 
-def embindGenerationFuncEnums(tu, preamble, child, typedefs, templateTypedefs) -> str:
-  embindings = EmbindBindings(typedefs, templateTypedefs, tu)
+def embindGenerationFuncEnums(tuInfo: TuInfo, preamble, child) -> str:
+  embindings = EmbindBindings(tuInfo)
   output = embindings.processEnum(child)
 
   return preamble + output
 
-def templateTypedefGenerator(tu):
-  return list(filter(
-    lambda x:
-      x.kind == clang.cindex.CursorKind.TYPEDEF_DECL and
-      not (x.get_definition() is None or not x == x.get_definition()) and
-      filterTypedef(x) and
-      x.type.get_num_template_arguments() != -1 and
-      not ignoreDuplicateTypedef(x),
-    tu.cursor.get_children()))
+def process(tuInfo: TuInfo, extension, embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, preamble, customBuild):
+  processChildren(tuInfo, tuInfo.allChildren, extension, filterClasses, embindGenerationFuncClasses, preamble, customBuild)
+  processChildren(tuInfo, tuInfo.templateTypedefs, extension, filterTemplates, embindGenerationFuncTemplates, preamble, customBuild)
+  processChildren(tuInfo, tuInfo.enums, extension, filterEnums, embindGenerationFuncEnums, preamble, customBuild)
 
-def typedefGenerator(tu):
-  return list(filter(lambda x: x.kind == clang.cindex.CursorKind.TYPEDEF_DECL, tu.cursor.get_children()))
-
-def allChildrenGenerator(tu):
-  return list(tu.cursor.get_children())
-
-def enumGenerator(tu):
-  return list(filter(lambda x: x.kind == clang.cindex.CursorKind.ENUM_DECL and filterEnum(x), tu.cursor.get_children()))
-
-def process(tu, extension, embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, preamble, customBuild):
-  typedefs = typedefGenerator(tu)
-  templateTypedefs = templateTypedefGenerator(tu)
-  processChildren(tu, allChildrenGenerator(tu), extension, filterClasses, embindGenerationFuncClasses, typedefs, templateTypedefs, preamble, customBuild)
-  processChildren(tu, templateTypedefs, extension, filterTemplates, embindGenerationFuncTemplates, typedefs, templateTypedefs, preamble, customBuild)
-  processChildren(tu, enumGenerator(tu), extension, filterEnums, embindGenerationFuncEnums, typedefs, templateTypedefs, preamble, customBuild)
-
-def typescriptGenerationFuncClasses(tu, preamble, child, typedefs, templateTypedefs) -> str:
-  typescript = TypescriptBindings(typedefs, templateTypedefs, tu)
+def typescriptGenerationFuncClasses(tuInfo: TuInfo, preamble, child) -> str:
+  typescript = TypescriptBindings(tuInfo)
   output = typescript.processClass(child)
 
   return json.dumps({
@@ -168,9 +143,9 @@ def typescriptGenerationFuncClasses(tu, preamble, child, typedefs, templateTyped
     "exports": typescript.exports,
   })
 
-def typescriptGenerationFuncTemplates(tu, preamble, child, typedefs, templateTypedefs) -> str:
+def typescriptGenerationFuncTemplates(tuInfo: TuInfo, preamble, child) -> str:
   [templateClass, templateArgs] = processTemplate(child)
-  typescript = TypescriptBindings(typedefs, templateTypedefs, tu)
+  typescript = TypescriptBindings(tuInfo)
   output = typescript.processClass(templateClass, child, templateArgs)
 
   return json.dumps({
@@ -179,8 +154,8 @@ def typescriptGenerationFuncTemplates(tu, preamble, child, typedefs, templateTyp
     "exports": typescript.exports,
   })
 
-def typescriptGenerationFuncEnums(tu, preamble, child, typedefs, templateTypedefs) -> str:
-  typescript = TypescriptBindings(typedefs, templateTypedefs, tu)
+def typescriptGenerationFuncEnums(tuInfo: TuInfo, preamble, child) -> str:
+  typescript = TypescriptBindings(tuInfo)
   output = typescript.processEnum(child)
 
   return json.dumps({
@@ -188,25 +163,6 @@ def typescriptGenerationFuncEnums(tu, preamble, child, typedefs, templateTypedef
     "kind": "enum",
     "exports": typescript.exports,
   })
-
-def parse(additionalCppCode = ""):
-  index = clang.cindex.Index.create()
-  translationUnit = index.parse(
-    "myMain.h", [
-      "-x",
-      "c++",
-      "-stdlib=libc++",
-      "-D__EMSCRIPTEN__"
-    ] + includePathArgs,
-    [["myMain.h", ocIncludeStatements + "\n" + additionalCppCode]]
-  )
-
-  if len(translationUnit.diagnostics) > 0:
-    print("Diagnostic Messages:")
-    for d in translationUnit.diagnostics:
-      print("  " + d.format())
-
-  return translationUnit
 
 referenceTypeTemplateDefs = \
   "\n" + \
@@ -240,9 +196,9 @@ def generateCustomCodeBindings(customCode):
 
   embindPreamble = ocIncludeStatements + "\n" + referenceTypeTemplateDefs + "\n" + customCode
 
-  tu = parse(customCode)
-  process(tu, ".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, True)
-  process(tu, ".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", True)
+  tuInfo = TuInfo("")
+  process(tuInfo, ".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, True)
+  process(tuInfo, ".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", True)
 
 if __name__ == "__main__":
   try:
@@ -250,9 +206,9 @@ if __name__ == "__main__":
   except Exception:
     pass
 
-  tu = parse("")
+  tuInfo = TuInfo("")
 
   embindPreamble = ocIncludeStatements + "\n" + referenceTypeTemplateDefs
-  process(tu, ".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, False)
+  process(tuInfo, ".cpp", embindGenerationFuncClasses, embindGenerationFuncTemplates, embindGenerationFuncEnums, embindPreamble, False)
 
-  process(tu, ".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", False)
+  process(tuInfo, ".d.ts.json", typescriptGenerationFuncClasses, typescriptGenerationFuncTemplates, typescriptGenerationFuncEnums, "", False)
