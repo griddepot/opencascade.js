@@ -3,3 +3,4 @@ node_modules/
 occt-src/
 **/.git
 test/
+src/.venv/

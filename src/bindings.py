@@ -1,10 +1,16 @@
-import clang.cindex
 import re
+from typing import List, Tuple
 
-from wasmGenerator.Common import SkipException, isAbstractClass, getMethodOverloadPostfix
-from filter.filterClasses import filterClass
-from filter.filterMethodOrProperties import filterMethodOrProperty
-from typing import Tuple, List
+import clang.cindex
+
+from filters.filterClasses import filterClass
+from filters.filterMethodOrProperties import filterMethodOrProperty
+from wasmGenerator.common import (
+  SkipException,
+  getMethodOverloadPostfix,
+  isAbstractClass,
+)
+
 
 def merge(sep: str, *strings: List[str]):
   return sep.join(strings)

@@ -23,7 +23,7 @@ mainBuild:
     - -sINITIAL_MEMORY=100MB
     - -sMAXIMUM_MEMORY=4GB
     - -sALLOW_MEMORY_GROWTH=1
-    - -sUSE_FREETYPE=1
+    - -sUSE_FREETYPE=0
     - -sLLD_REPORT_UNDEFINED
     - --no-entry
 
