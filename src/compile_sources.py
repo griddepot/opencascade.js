@@ -8,8 +8,8 @@ from argparse import ArgumentParser
 
 from tqdm import tqdm
 
-from filters.filterPackages import filterPackages
-from filters.filterSourceFiles import filterSourceFile
+from filters.pkgs import filter_packages
+from filters.source_files import filter_source_file
 
 lib_base_path = "/opencascade.js/build/sources"
 
@@ -118,11 +118,11 @@ filesToBuild = []
 for dirpath, dirnames, filenames in os.walk(source_base_path):
     packageOrModuleName = os.path.basename(dirpath.replace(source_base_path, ""))
     for item in filenames:
-        if not filterPackages(packageOrModuleName) or not filterPackages(
+        if not filter_packages(packageOrModuleName) or not filter_packages(
             getModuleNameByPackageName(packageOrModuleName)
         ):
             continue
-        if filterSourceFile(dirpath + "/" + item):
+        if filter_source_file(dirpath + "/" + item):
             filesToBuild.append(dirpath + "/" + item)
 
 if __name__ == "__main__":

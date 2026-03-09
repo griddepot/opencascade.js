@@ -1,4 +1,4 @@
-def filterSourceFile(filename):
+def filter_source_file(filename):
   # fatal error: 'TargetConditionals.h' file not found
   if filename.endswith(".mm"):
     return False

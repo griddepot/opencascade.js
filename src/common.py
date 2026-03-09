@@ -1,17 +1,16 @@
-from filters.filterIncludeFiles import filterIncludeFile
-from typing import Set
+from filters.includes import filter_include
 import os
 
 occtBasePath = "/occt/src/"
 
 
-def getGlobalIncludes() -> Set[str]:
+def getGlobalIncludes() -> tuple[list[str], list[str]]:
     includeFiles = list()
     additionalIncludePaths = list()
     for dirpath, dirnames, filenames in os.walk(occtBasePath):
         additionalIncludePaths.append(str(dirpath))
         for item in filenames:
-            if filterIncludeFile(item):
+            if filter_include(item):
                 includeFiles.append(str(os.path.join(dirpath, item)))
     return [includeFiles, additionalIncludePaths]
 

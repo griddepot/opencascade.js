@@ -1,4 +1,4 @@
-def filterTypedef(typedef, additionalInfo=None):
+def filter_typedef(typedef, additional_info=None):
   # Cannot register type 'SelectMgr_Vec3' / 'SelectMgr_Mat4' twice
   if typedef.spelling in [
     "SelectMgr_Vec3",

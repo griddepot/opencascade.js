@@ -61,7 +61,7 @@ def getMethodOverloadPostfix(theClass, method, children = None):
 
   return [overloadPostfix, len(allOverloads)]
 
-def ignoreDuplicateTypedef(typedef):
+def ignore_duplicate_typedef(typedef):
   if typedef.underlying_typedef_type.spelling in [
     "long",
     "unsigned long",

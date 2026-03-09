@@ -3,13 +3,14 @@ from typing import List, Tuple
 
 import clang.cindex
 
-from filters.filterClasses import filterClass
-from filters.filterMethodOrProperties import filterMethodOrProperty
-from wasmGenerator.common import (
+from filters.classes import filter_class
+from filters.method_or_property import filter_method_or_property
+from wasm_gen.common import (
   SkipException,
   getMethodOverloadPostfix,
   isAbstractClass,
 )
+from tu_info import TuInfo
 
 
 def merge(sep: str, *strings: List[str]):
@@ -28,7 +29,7 @@ def shouldProcessClass(child: clang.cindex.Cursor, occtBasePath: str):
   if child.get_definition() is None or not child == child.get_definition():
     return False
 
-  if not filterClass(child):
+  if not filter_class(child):
     return False
 
   if (
@@ -86,12 +87,12 @@ def getClassTypeName(theClass, templateDecl = None):
   return templateDecl.spelling if templateDecl is not None else theClass.spelling
 
 class Bindings:
-  def __init__(self, tuInfo):
+  def __init__(self, tuInfo: TuInfo):
     self.tuInfo = tuInfo
 
   def getTypedefedTemplateTypeAsString(self, theTypeSpelling, templateDecl = None, templateArgs = None):
     if templateDecl is None:
-      tud = self.tuInfo.typedefUnderlyingDict
+      tud = self.tuInfo.typedef_underlying_dict
       if theTypeSpelling in tud:
         typedefType = tud[theTypeSpelling].spelling
       else:
@@ -99,7 +100,7 @@ class Bindings:
     else:
       templateType = self.replaceTemplateArgs(theTypeSpelling, templateArgs)
       rawTemplateType = templateType.replace("&", "").replace("const", "").strip()
-      ttud = self.tuInfo.templateTypedefUnderlyingDict
+      ttud = self.tuInfo.template_typedef_underlying_dict
       oc_rawTemplateType = "opencascade::" + rawTemplateType
       if rawTemplateType in ttud:
         rawTypedefType = ttud[rawTemplateType].spelling
@@ -121,11 +122,11 @@ class Bindings:
 
   def processClass(self, theClass, templateDecl = None, templateArgs = None):
     output = ""
-    isAbstract = isAbstractClass(theClass, self.tuInfo.classDict)
+    isAbstract = isAbstractClass(theClass, self.tuInfo.class_dict)
     if not isAbstract:
       output += self.processSimpleConstructor(theClass)
     for method in theClass.get_children():
-      if not filterMethodOrProperty(theClass, method):
+      if not filter_method_or_property(theClass, method):
         continue
       try:
         output += self.processMethodOrProperty(theClass, method, templateDecl, templateArgs)
@@ -427,7 +428,7 @@ class EmbindBindings(Bindings):
     allOverloads = [m for m in children if m.kind == clang.cindex.CursorKind.CONSTRUCTOR and m.access_specifier == clang.cindex.AccessSpecifier.PUBLIC]
     if len(allOverloads) == 1:
       raise Exception("Something weird happened")
-    for constructor in filter(lambda x: filterMethodOrProperty(theClass, x), constructors):
+    for constructor in filter(lambda x: filter_method_or_property(theClass, x), constructors):
       overloadPostfix = "" if (not len(allOverloads) > 1) else "_" + str(allOverloads.index(constructor) + 1)
 
       args = ", ".join(list(map(lambda x: ("std::string " + x.spelling) if isCString(x.type) else self.getSingleArgumentBinding(True, True, templateDecl, templateArgs)(x)[0], constructor.get_arguments())))
@@ -594,7 +595,7 @@ class TypescriptBindings(Bindings):
     constructorTypescriptDef = ""
     allOverloadedConstructors = []
 
-    for constructor in filter(lambda x: filterMethodOrProperty(theClass, x), constructors):
+    for constructor in filter(lambda x: filter_method_or_property(theClass, x), constructors):
       [overloadPostfix, numOverloads] = getMethodOverloadPostfix(theClass, constructor, children)
 
       argsTypescriptDef = ", ".join(list(map(lambda x: self.getTypescriptDefFromArg(x, "", templateDecl, templateArgs), list(constructor.get_arguments()))))

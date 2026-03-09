@@ -1,4 +1,4 @@
-def filterPackages(packageName):
+def filter_packages(packageName):
   if packageName == "":
     return False
 

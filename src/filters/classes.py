@@ -1,4 +1,4 @@
-def filterClass(theClass, additionalInfo=None):
+def filter_class(theClass, additional_info=None):
   # out of scope of this project
   if (
     theClass.spelling.startswith("D3DHost") or

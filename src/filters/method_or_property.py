@@ -1,6 +1,6 @@
 import clang.cindex
 
-def filterMethodOrProperty(theClass, methodOrProperty):
+def filter_method_or_property(theClass, methodOrProperty):
   # # error: no matching conversion for functional-style cast from '(lambda at /opencascade.js/build/modules/module.TKHLR.wasm.cpp:8477:153)' to 'std::function<HLRAlgo_BiPoint::PointsT &(HLRAlgo_PolyAlgo &, emscripten::val, emscripten::val, emscripten::val, emscripten::val, emscripten::val)>'
   # if \
   #   (theClass.spelling == "HLRAlgo_PolyAlgo" and methodOrProperty.spelling == "Show") or \

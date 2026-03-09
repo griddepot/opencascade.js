@@ -3,24 +3,11 @@ FROM emscripten/emsdk:4.0.23 AS base-image
 RUN \
   apt-get update -y && \
   apt-get install -y \
-  bash \
   build-essential \
-  cmake \
   curl \
   git \
-  libffi-dev \
-  libgdbm-dev \
-  libncurses5-dev \
-  libnss3-dev \
-  libreadline-dev \
-  libsqlite3-dev \
-  libssl-dev \
-  libbz2-dev \
-  npm \
-  python3 \
-  python3-setuptools \
-  zlib1g-dev
-  
+  python3
+
 COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 
 WORKDIR /rapidjson/
@@ -54,6 +41,7 @@ RUN uv sync
 
 FROM stage-uv AS stage-compiled
 
+COPY headers/Standard_Version.hxx /occt/src/Standard/Standard_Version.hxx
 COPY src/compile_sources.py /opencascade.js/src/compile_sources.py
 COPY src/filters /opencascade.js/src/filters/
 
@@ -70,7 +58,7 @@ RUN uv run compile_sources.py ${threading} ${release}
 FROM stage-compiled AS stage-bindings
 
 COPY src/filters/ /opencascade.js/src/filters
-COPY src/wasmGenerator/ /opencascade.js/src/wasmGenerator 
+COPY src/wasm_gen/ /opencascade.js/src/wasm_gen 
 COPY src/tu_info.py /opencascade.js/src/tu_info.py
 COPY src/bindings.py /opencascade.js/src/bindings.py
 COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py

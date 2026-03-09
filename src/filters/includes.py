@@ -1,4 +1,4 @@
-def filterIncludeFile(filename):
+def filter_include(filename):
   if not filename.endswith(".hxx"):
     return False
 

@@ -6,11 +6,11 @@ import os
 from typing import Callable
 
 import clang.cindex
-from wasmGenerator.common import SkipException
+from wasm_gen.common import SkipException
 
 from bindings import EmbindBindings, TypescriptBindings, shouldProcessClass
 from common import ocIncludeStatements
-from filters.filterPackages import filterPackages
+from filters.pkgs import filter_packages
 from tu_info import TuInfo
 
 libraryBasePath = "/opencascade.js/build/bindings"
@@ -33,7 +33,7 @@ def filterClasses(child, customBuild):
         )
     return (
         child.extent.start.file.name.startswith(occtBasePath)
-        and filterPackages(os.path.basename(os.path.dirname(child.location.file.name)))
+        and filter_packages(os.path.basename(os.path.dirname(child.location.file.name)))
         and shouldProcessClass(child, occtBasePath)
     )
 
@@ -51,7 +51,7 @@ def filterTemplates(child, customBuild):
     return (
         (
             child.extent.start.file.name.startswith(occtBasePath)
-            and filterPackages(
+            and filter_packages(
                 os.path.basename(os.path.dirname(child.location.file.name))
             )
         )
@@ -68,7 +68,7 @@ def filterEnums(child, customBuild):
         return child.location.file.name == "myMain.h"
     return (
         child.extent.start.file.name.startswith(occtBasePath)
-        and filterPackages(os.path.basename(os.path.dirname(child.location.file.name)))
+        and filter_packages(os.path.basename(os.path.dirname(child.location.file.name)))
     ) and child.kind == clang.cindex.CursorKind.ENUM_DECL
 
 
@@ -97,16 +97,16 @@ def processChildren(
             + extension
         )
 
-        if not os.path.exists(filename):
-            print("Processing " + child.spelling)
-            try:
-                output = processFunction(tuInfo, preamble, child)
-                with open(filename, "w") as bindingsFile:
-                    bindingsFile.write(output)
-            except SkipException as e:
-                print(str(e))
-        else:
+        if os.path.exists(filename):
             print("file " + child.spelling + ".cpp already exists, skipping")
+            continue
+        print("Processing " + child.spelling + " (" + relOcFileName + ")")
+        try:
+            output = processFunction(tuInfo, preamble, child)
+            with open(filename, "w") as bindingsFile:
+                bindingsFile.write(output)
+        except SkipException as e:
+            print(str(e))
 
 
 def split(a: list, n):
@@ -184,7 +184,7 @@ def process(
 ):
     processChildren(
         tuInfo,
-        tuInfo.allChildren,
+        tuInfo.all_children,
         extension,
         filterClasses,
         embindGenerationFuncClasses,
@@ -193,7 +193,7 @@ def process(
     )
     processChildren(
         tuInfo,
-        tuInfo.templateTypedefs,
+        tuInfo.template_typedefs,
         extension,
         filterTemplates,
         embindGenerationFuncTemplates,
