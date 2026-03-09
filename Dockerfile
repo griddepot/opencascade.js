@@ -1,8 +1,8 @@
 FROM emscripten/emsdk:4.0.23 AS base-image
 
 RUN \
-  apt update -y && \
-  apt install -y \
+  apt-get update -y && \
+  apt-get install -y \
   bash \
   build-essential \
   cmake \
@@ -18,7 +18,6 @@ RUN \
   libbz2-dev \
   npm \
   python3 \
-  python3-pip \
   python3-setuptools \
   zlib1g-dev
   
@@ -38,37 +37,57 @@ RUN \
   rmdir OCCT-* || true && \
   rm occt.tar.gz
 
-ARG threading=single-threaded
-ARG release=false
-ENV threading=$threading
-
+  
 FROM base-image AS stage-uv
 
-COPY src /opencascade.js/src
+COPY src/pyproject.toml /opencascade.js/src/pyproject.toml
+COPY src/uv.lock /opencascade.js/src/uv.lock
 WORKDIR /opencascade.js/src/
 RUN uv sync
-
-# =============================================================
-
-# FROM base-image AS stage-patched
+  
+  # =============================================================
+  
+  # FROM base-image AS stage-patched
 # RUN python3 /opencascade.js/src/apply_patches.py
 
 # =============================================================
 
 FROM stage-uv AS stage-compiled
+
+COPY src/compile_sources.py /opencascade.js/src/compile_sources.py
+COPY src/filters /opencascade.js/src/filters/
+
 WORKDIR /opencascade.js/src/
+
+ARG threading=single-threaded
+ARG release=false
+ENV threading=$threading
+
 RUN uv run compile_sources.py ${threading} ${release}
 
 # =============================================================
 
 FROM stage-compiled AS stage-bindings
-RUN python3 /opencascade.js/src/generate_bindings.py
+
+COPY src/filters/ /opencascade.js/src/filters
+COPY src/wasmGenerator/ /opencascade.js/src/wasmGenerator 
+COPY src/tu_info.py /opencascade.js/src/tu_info.py
+COPY src/bindings.py /opencascade.js/src/bindings.py
+COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py
+COPY src/common.py /opencascade.js/src/common.py
+
+WORKDIR /opencascade.js/src/
+
+RUN uv run generate_bindings.py
 
 # =============================================================
 
 FROM stage-bindings AS custom-build-image
+COPY src/compile_bindings.py /opencascade.js/src/compile_bindings.py
+
+WORKDIR /opencascade.js/src/
 RUN \
-  python3 /opencascade.js/src/compile_bindings.py ${threading} && \
+  uv run compile_bindings.py ${threading} ${release} && \
   chmod -R 777 /opencascade.js/ && \
   chmod -R 777 /occt
 

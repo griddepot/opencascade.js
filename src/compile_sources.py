@@ -63,7 +63,7 @@ def build_object_files(file: str, args: dict):
 
     command = [
         "emcc",
-        "-flto" if args["release"] == "true" else "",
+        "-flto",
         "-fexceptions",
         "-sDISABLE_EXCEPTION_CATCHING=0",
         "-DIGNORE_NO_ATOMICS=1",

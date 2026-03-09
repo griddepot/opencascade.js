@@ -20,8 +20,6 @@ def getGlobalIncludes() -> Set[str]:
 
 additionalIncludePaths = [
     "/rapidjson/include",
-    "/freetype/include/freetype",
-    "/freetype/include",
 ]
 
 includePathArgs = (

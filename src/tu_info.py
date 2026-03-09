@@ -35,16 +35,16 @@ def templateTypedefGenerator(tu):
       not ignoreDuplicateTypedef(x),
     tu.cursor.get_children()))
 
-def typedefGenerator(tu):
+def typedefGenerator(tu: clang.cindex.TranslationUnit):
   return list(filter(lambda x: x.kind == clang.cindex.CursorKind.TYPEDEF_DECL, tu.cursor.get_children()))
 
-def allChildrenGenerator(tu):
+def allChildrenGenerator(tu: clang.cindex.TranslationUnit):
   return list(tu.cursor.get_children())
 
-def enumGenerator(tu):
+def enumGenerator(tu: clang.cindex.TranslationUnit):
   return list(filter(lambda x: x.kind == clang.cindex.CursorKind.ENUM_DECL and filterEnum(x), tu.cursor.get_children()))
 
-def classDict(tu):
+def classDict(tu: clang.cindex.TranslationUnit):
   d = dict()
   for x in tu.cursor.get_children():
     if (
@@ -59,7 +59,7 @@ def classDict(tu):
         d[x.spelling] = x
   return d
 
-def underlyingDict(l, checkOcctBasePath: bool):
+def underlyingDict(l: list, checkOcctBasePath: bool):
   d = dict()
   for x in l:
     if checkOcctBasePath and not x.location.file.name.startswith(occtBasePath):
