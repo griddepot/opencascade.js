@@ -1,6 +1,6 @@
 import clang.cindex
 
-from common import includePathArgs, occtBasePath, ocIncludeStatements
+from common import includePathArgs, occtBasePath, ocIncludeStatements, ocIncludePaths
 from filters.enums import filter_enum
 from filters.typedefs import filter_typedef
 from wasm_gen.common import ignore_duplicate_typedef
@@ -98,6 +98,14 @@ def underlying_dict(items: list, check_occt_base_path: bool):
             d[x.underlying_typedef_type.spelling] = x
     return d
 
+def get_oc_includes(path: str):
+    index = clang.cindex.Index.create()
+    translation_unit = index.parse(
+        path,
+        ["-x", "c++", "-stdlib=libc++", "-d__emscripten__"]
+        + list(map(lambda p: "-I" + p, ocIncludePaths)),
+    )
+    return "\n".join(sorted(set(map(lambda x: f"#include \"{x.include.name.split('/')[-1]}\"", filter(lambda x: x.include.name.startswith("/occt") and x.include.name.endswith(".hxx"), translation_unit.get_includes())))))
 
 class TuInfo:
     """utility class for tracking information about a translation unit"""

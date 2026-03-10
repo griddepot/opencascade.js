@@ -11,7 +11,7 @@ from wasm_gen.common import SkipException
 from bindings import EmbindBindings, TypescriptBindings, shouldProcessClass
 from common import ocIncludeStatements
 from filters.pkgs import filter_packages
-from tu_info import TuInfo
+from tu_info import TuInfo, get_oc_includes
 
 libraryBasePath = "/opencascade.js/build/bindings"
 buildDirectory = "/opencascade.js/build"
@@ -78,7 +78,7 @@ def processChildren(
     extension: str,
     filterFunction: Callable[[any], bool],
     processFunction: Callable[[any, any], str],
-    preamble: str,
+    preamble_: str,
     customBuild: bool,
 ):
     for child in children:
@@ -101,6 +101,9 @@ def processChildren(
             print("file " + child.spelling + ".cpp already exists, skipping")
             continue
         print("Processing " + child.spelling + " (" + relOcFileName + ")")
+        
+        preamble = get_oc_includes(child.extent.start.file.name) if extension == ".cpp" and child.kind == clang.cindex.CursorKind.CLASS_DECL else ""
+        
         try:
             output = processFunction(tuInfo, preamble, child)
             with open(filename, "w") as bindingsFile:
