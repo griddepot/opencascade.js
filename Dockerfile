@@ -71,7 +71,10 @@ RUN uv run generate_bindings.py
 # =============================================================
 
 FROM stage-bindings AS custom-build-image
+
 COPY src/compile_bindings.py /opencascade.js/src/compile_bindings.py
+COPY src/build_yaml.py /opencascade.js/src/build_yaml.py
+COPY src/build_schema_def.py /opencascade.js/src/build_schema_def.py
 
 WORKDIR /opencascade.js/src/
 RUN \
@@ -79,4 +82,6 @@ RUN \
   chmod -R 777 /opencascade.js/ && \
   chmod -R 777 /occt
 
-ENTRYPOINT ["/opencascade.js/src/build_yaml.py"]
+RUN uv add pyyaml
+
+ENTRYPOINT ["uv", "run", "build_yaml.py"]

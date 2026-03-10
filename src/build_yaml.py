@@ -23,7 +23,7 @@ args = parser.parse_args()
 libraryBasePath = "/opencascade.js/build"
 
 buildConfig = yaml.safe_load(open(args.filename, "r"))
-schema = eval(open("/opencascade.js/src/customBuildSchema.py", "r").read())
+schema = eval(open("/opencascade.js/src/build_schema_def.py", "r").read())
 v = Validator(schema)
 if not v.validate(buildConfig, schema):
     raise Exception(v.errors)

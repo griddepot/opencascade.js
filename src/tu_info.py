@@ -104,8 +104,9 @@ def get_oc_includes(path: str):
         path,
         ["-x", "c++", "-stdlib=libc++", "-d__emscripten__"]
         + list(map(lambda p: "-I" + p, ocIncludePaths)),
+        options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
     )
-    return "\n".join(sorted(set(map(lambda x: f"#include \"{x.include.name.split('/')[-1]}\"", filter(lambda x: x.include.name.startswith("/occt") and x.include.name.endswith(".hxx"), translation_unit.get_includes())))))
+    return "\n#include <emscripten/bind.h>\n".join(sorted(set(map(lambda x: f"#include \"{x.include.name.split('/')[-1]}\"", filter(lambda x: x.include.name.startswith("/occt") and x.include.name.endswith(".hxx"), translation_unit.get_includes()))))) + "\n\n"
 
 class TuInfo:
     """utility class for tracking information about a translation unit"""
