@@ -1,8 +1,11 @@
+import os
+
 import clang.cindex
 
 from common import includePathArgs, occtBasePath, ocIncludeStatements, ocIncludePaths
 from filters.enums import filter_enum
 from filters.typedefs import filter_typedef
+from filters.includes import filter_include
 from wasm_gen.common import ignore_duplicate_typedef
 
 
@@ -15,14 +18,14 @@ def get_includes(path: str):
     return list(translation_unit.get_includes())
 
 
-def parse(additional_cpp_code=""):
+def parse(additional_cpp_code="", emsdk=False):
     index = clang.cindex.Index.create()
     translation_unit = index.parse(
         "myMain.h",
-        ["-x", "c++", "-stdlib=libc++", "-d__emscripten__"] + includePathArgs,
+        ["-x", "c++", "-stdlib=libc++", "-d__emscripten__" if emsdk else ""] + includePathArgs,
         [["myMain.h", ocIncludeStatements + "\n" + additional_cpp_code]],
     )
-    
+
     if len(translation_unit.diagnostics) > 0:
         print("diagnostic messages:")
         for d in translation_unit.diagnostics:
@@ -80,6 +83,7 @@ def class_dict(tu: clang.cindex.TranslationUnit):
                 d[x.spelling] = x
     return d
 
+
 def includes_generator(tu: clang.cindex.TranslationUnit):
     return list(
         filter(
@@ -87,6 +91,7 @@ def includes_generator(tu: clang.cindex.TranslationUnit):
             tu.cursor.get_children(),
         )
     )
+
 
 def underlying_dict(items: list, check_occt_base_path: bool):
     d = dict()
@@ -98,6 +103,7 @@ def underlying_dict(items: list, check_occt_base_path: bool):
             d[x.underlying_typedef_type.spelling] = x
     return d
 
+
 def get_oc_includes(path: str):
     index = clang.cindex.Index.create()
     translation_unit = index.parse(
@@ -106,14 +112,30 @@ def get_oc_includes(path: str):
         + list(map(lambda p: "-I" + p, ocIncludePaths)),
         options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
     )
-    return "\n#include <emscripten/bind.h>\n".join(sorted(set(map(lambda x: f"#include \"{x.include.name.split('/')[-1]}\"", filter(lambda x: x.include.name.startswith("/occt") and x.include.name.endswith(".hxx"), translation_unit.get_includes()))))) + "\n\n"
+
+    valid_includes = filter(
+        lambda x: (
+            x.include.name.startswith("/occt")
+            and filter_include(x.include.name.split("/")[-1])
+        ),
+        translation_unit.get_includes(),
+    )
+
+    written_includes = sorted(
+        set(
+            map(lambda x: f'#include "{x.include.name.split("/")[-1]}"', valid_includes)
+        )
+    )
+    index = None
+    translation_unit = None
+    return os.linesep.join(written_includes) + os.linesep + os.linesep
+
 
 class TuInfo:
     """utility class for tracking information about a translation unit"""
 
-    def __init__(self, custom_code: str):
-        self.tu = parse(custom_code)
-        print(custom_code)
+    def __init__(self, custom_code: str, emsdk: bool = True):
+        self.tu = parse(custom_code, emsdk)
         """the loaded clang translation unit"""
         self.all_children = all_children_generator(self.tu)
         self.typedefs = typedef_generator(self.tu)

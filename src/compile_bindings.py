@@ -57,8 +57,34 @@ def compileCustomCodeBindings(args):
             )
         )
 
+    ok = failed = skipped = 0
+    start = time.time()
+
     with multiprocessing.Pool(processes=int(multiprocessing.cpu_count() / 1)) as p:
-        p.map(partial(buildOneFile, args), sorted(filesToBuild))
+        for status, path in tqdm(
+            p.imap_unordered(
+                partial(
+                    buildOneFile,
+                    {
+                        "threading": args.threading,
+                    },
+                ),
+                sorted(filesToBuild),
+            ),
+            total=total,
+            desc="Compiling bindings",
+            unit="file",
+        ):
+            if status == "ok":
+                ok += 1
+            elif status == "failed":
+                failed += 1
+            else:
+                skipped += 1
+    elapsed = time.time() - start
+    print(
+        f"\nBinding compilation done: {ok} compiled, {failed} failed, {skipped} skipped (total: {total}) in {elapsed / 60:.1f}min"
+    )
 
 
 if __name__ == "__main__":
@@ -83,7 +109,7 @@ if __name__ == "__main__":
                 filter(lambda x: x.endswith(".cpp"), filenames),
             )
         )
-        
+
     total = len(filesToBuild)
     print(f"Compiling {total} binding files...")
 
@@ -113,4 +139,6 @@ if __name__ == "__main__":
             else:
                 skipped += 1
     elapsed = time.time() - start
-    print(f"\nBinding compilation done: {ok} compiled, {failed} failed, {skipped} skipped (total: {total}) in {elapsed/60:.1f}min")
+    print(
+        f"\nBinding compilation done: {ok} compiled, {failed} failed, {skipped} skipped (total: {total}) in {elapsed / 60:.1f}min"
+    )

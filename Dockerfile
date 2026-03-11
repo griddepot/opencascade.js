@@ -6,7 +6,8 @@ RUN \
   build-essential \
   curl \
   git \
-  python3
+  python3 \
+  vim
 
 COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 
@@ -32,9 +33,9 @@ COPY src/uv.lock /opencascade.js/src/uv.lock
 WORKDIR /opencascade.js/src/
 RUN uv sync
   
-  # =============================================================
+# =============================================================
   
-  # FROM base-image AS stage-patched
+# FROM base-image AS stage-patched
 # RUN python3 /opencascade.js/src/apply_patches.py
 
 # =============================================================
@@ -55,14 +56,25 @@ RUN uv run compile_sources.py ${threading} ${release}
 
 # =============================================================
 
-FROM stage-compiled AS stage-bindings
+FROM stage-compiled AS stage-preambles
+
+COPY src/common.py /opencascade.js/src/common.py
+COPY src/tu_info.py /opencascade.js/src/tu_info.py
+COPY src/wasm_gen/ /opencascade.js/src/wasm_gen
+COPY src/generate_preambles.py /opencascade.js/src/generate_preambles.py
+
+WORKDIR /opencascade.js/src/
+
+RUN uv run generate_preambles.py
+
+# =============================================================
+
+FROM stage-preambles AS stage-bindings
 
 COPY src/filters/ /opencascade.js/src/filters
 COPY src/wasm_gen/ /opencascade.js/src/wasm_gen 
-COPY src/tu_info.py /opencascade.js/src/tu_info.py
 COPY src/bindings.py /opencascade.js/src/bindings.py
 COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py
-COPY src/common.py /opencascade.js/src/common.py
 
 WORKDIR /opencascade.js/src/
 
@@ -81,7 +93,5 @@ RUN \
   uv run compile_bindings.py ${threading} ${release} && \
   chmod -R 777 /opencascade.js/ && \
   chmod -R 777 /occt
-
-RUN uv add pyyaml
 
 ENTRYPOINT ["uv", "run", "build_yaml.py"]

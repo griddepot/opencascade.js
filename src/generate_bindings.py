@@ -11,10 +11,21 @@ from wasm_gen.common import SkipException
 from bindings import EmbindBindings, TypescriptBindings, shouldProcessClass
 from common import ocIncludeStatements
 from filters.pkgs import filter_packages
-from tu_info import TuInfo
+from tu_info import TuInfo, get_oc_includes
 
 libraryBasePath = "/opencascade.js/build/bindings"
 buildDirectory = "/opencascade.js/build"
+
+
+def load_preambles():
+    preambles_path = os.path.join(buildDirectory, "preambles.json")
+    if os.path.exists(preambles_path):
+        with open(preambles_path) as f:
+            return json.load(f)
+    return {}
+
+
+preambles_cache = load_preambles()
 occtBasePath = "/occt/src/"
 
 
@@ -103,7 +114,15 @@ def processChildren(
         print("Processing " + child.spelling + " (" + relOcFileName + ")")
         
         try:
-            output = processFunction(tuInfo, preamble, child)
+            if extension == ".cpp":
+                file_name = child.extent.start.file.name
+                includes = preambles_cache.get(file_name)
+                if includes is None:
+                    includes = get_oc_includes(file_name)
+                custom_preamble = includes + referenceTypeTemplateDefs
+            else:
+                custom_preamble = ""
+            output = processFunction(tuInfo, custom_preamble, child)
             with open(filename, "w") as bindingsFile:
                 bindingsFile.write(output)
         except SkipException as e:
