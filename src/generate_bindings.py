@@ -11,7 +11,7 @@ from wasm_gen.common import SkipException
 from bindings import EmbindBindings, TypescriptBindings, shouldProcessClass
 from common import ocIncludeStatements
 from filters.pkgs import filter_packages
-from tu_info import TuInfo, get_oc_includes
+from tu_info import TuInfo, get_includes
 
 libraryBasePath = "/opencascade.js/build/bindings"
 buildDirectory = "/opencascade.js/build"
@@ -118,7 +118,7 @@ def processChildren(
                 file_name = child.extent.start.file.name
                 includes = preambles_cache.get(file_name)
                 if includes is None:
-                    includes = get_oc_includes(file_name)
+                    includes = get_includes(file_name)
                 custom_preamble = includes + referenceTypeTemplateDefs
             else:
                 custom_preamble = ""

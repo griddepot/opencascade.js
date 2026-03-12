@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from common import occtBasePath
 from filters.pkgs import filter_packages
-from tu_info import TuInfo, get_oc_includes
+from tu_info import TuInfo, get_includes
 
 buildDirectory = "/opencascade.js/build"
 sourcesDirectory = "/opencascade.js/build/sources"
@@ -18,11 +18,9 @@ SOURCE_EXTENSIONS = [".cxx", ".cpp", ".c"]
 
 def get_compiled_source_path(header_path: str) -> str | None:
     """Check if a compiled source file exists for the given header path."""
-    rel_path = header_path.replace(occtBasePath, "")
-    base, _ = os.path.splitext(rel_path)
+    base, _ = os.path.splitext(header_path)
     for ext in SOURCE_EXTENSIONS:
-        candidate = os.path.join(occtBasePath, base + ext)
-        print(candidate)
+        candidate = base + ext
         if os.path.exists(candidate):
             return candidate
     return None
@@ -30,9 +28,12 @@ def get_compiled_source_path(header_path: str) -> str | None:
 
 def generate_preamble(file_path: str) -> tuple[str, str]:
     source_path = get_compiled_source_path(file_path)
-    if source_path is not None:
-        return file_path, f'#include "{os.path.basename(file_path)}"\n' + get_oc_includes(source_path)
-    return file_path, get_oc_includes(file_path)
+    includes = (
+        get_includes(source_path)
+        if source_path is not None
+        else get_includes(file_path)
+    )
+    return file_path, includes
 
 
 def generate_preambles():
