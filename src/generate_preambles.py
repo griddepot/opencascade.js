@@ -1,19 +1,51 @@
-#!/usr/bin/python3
-
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import clang.cindex as cx
 from tqdm import tqdm
 
-from common import occtBasePath
+from common import OCCT_BASE_PATH, OCCT_INCLUDE_PATH_ARGS
+from filters.includes import filter_include
 from filters.pkgs import filter_packages
-from tu_info import TuInfo, get_includes
+from tu_info import TuInfo
 
 buildDirectory = "/opencascade.js/build"
 sourcesDirectory = "/opencascade.js/build/sources"
 
 SOURCE_EXTENSIONS = [".cxx", ".cpp", ".c"]
+
+
+def get_include_name(file_inclusion: cx.FileInclusion):
+    return os.path.basename(file_inclusion.include.name)
+
+
+def get_one_preamble(path: str):
+    """Get the preamble from an OCCT source/header file"""
+    index = cx.Index.create()
+    tu = index.parse(
+        path,
+        ["-x", "c++", "-stdlib=libc++", *OCCT_INCLUDE_PATH_ARGS],
+        options=cx.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
+    )
+
+    default_include = os.path.basename(path).replace(".cxx", ".hxx")
+    valid_includes = list(
+        dict.fromkeys(
+            [
+                f'#include "{get_include_name(n)}"'
+                for n in tu.get_includes()
+                if n.depth == 1
+                and n.include.name.startswith("/occt")
+                and filter_include(get_include_name(n))
+            ]
+            + [f'#include "{default_include}"']
+        )
+    )
+
+    index = None
+    tu = None
+    return os.linesep.join(valid_includes) + os.linesep
 
 
 def get_compiled_source_path(header_path: str) -> str | None:
@@ -29,21 +61,21 @@ def get_compiled_source_path(header_path: str) -> str | None:
 def generate_preamble(file_path: str) -> tuple[str, str]:
     source_path = get_compiled_source_path(file_path)
     includes = (
-        get_includes(source_path)
+        get_one_preamble(source_path)
         if source_path is not None
-        else get_includes(file_path)
+        else get_one_preamble(file_path)
     )
     return file_path, includes
 
 
 def generate_preambles():
-    tuInfo = TuInfo("")
+    tuInfo = TuInfo("", False, OCCT_INCLUDE_PATH_ARGS)
 
     source_files = set()
     for child in tuInfo.all_children:
         if (
             child.extent.start.file is not None
-            and child.extent.start.file.name.startswith(occtBasePath)
+            and child.extent.start.file.name.startswith(OCCT_BASE_PATH)
             and child.location.file is not None
             and filter_packages(
                 os.path.basename(os.path.dirname(child.location.file.name))

@@ -10,7 +10,7 @@ from itertools import chain
 import yaml
 from cerberus import Validator
 
-from common import additionalIncludePaths, ocIncludePaths
+from common import _3RD_PARTY_INCLUDES, OCCT_INCLUDE_PATHS
 from compile_bindings import compileCustomCodeBindings
 from generate_bindings import generateCustomCodeBindings
 
@@ -113,7 +113,7 @@ def runBuild(build):
                 "-DHAVE_RAPIDJSON",
                 "-Os",
                 "-pthread" if os.environ["threading"] == "multi-threaded" else "",
-                *list(map(lambda x: "-I" + x, ocIncludePaths + additionalIncludePaths)),
+                *list(map(lambda x: "-I" + x, OCCT_INCLUDE_PATHS + _3RD_PARTY_INCLUDES)),
                 "-c",
                 additionalBindCodeFileName,
             ]

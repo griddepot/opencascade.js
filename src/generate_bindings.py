@@ -9,9 +9,9 @@ import clang.cindex
 from wasm_gen.common import SkipException
 
 from bindings import EmbindBindings, TypescriptBindings, shouldProcessClass
-from common import ocIncludeStatements
+from common import ALL_OCCT_INCLUDE_STATEMENTS
 from filters.pkgs import filter_packages
-from tu_info import TuInfo, get_includes
+from tu_info import TuInfo
 
 libraryBasePath = "/opencascade.js/build/bindings"
 buildDirectory = "/opencascade.js/build"
@@ -118,7 +118,7 @@ def processChildren(
                 file_name = child.extent.start.file.name
                 includes = preambles_cache.get(file_name)
                 if includes is None:
-                    includes = get_includes(file_name)
+                    includes = "" # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
                 custom_preamble = includes + referenceTypeTemplateDefs
             else:
                 custom_preamble = ""
@@ -304,7 +304,7 @@ def generateCustomCodeBindings(customCode):
         pass
 
     embindPreamble = (
-        ocIncludeStatements + "\n" + referenceTypeTemplateDefs + "\n" + customCode
+        ALL_OCCT_INCLUDE_STATEMENTS + "\n" + referenceTypeTemplateDefs + "\n" + customCode
     )
 
     tuInfo = TuInfo(customCode)
@@ -336,7 +336,7 @@ if __name__ == "__main__":
 
     tuInfo = TuInfo("")
 
-    embindPreamble = ocIncludeStatements + "\n" + referenceTypeTemplateDefs
+    embindPreamble = ALL_OCCT_INCLUDE_STATEMENTS + "\n" + referenceTypeTemplateDefs
     process(
         tuInfo,
         ".cpp",

@@ -109,7 +109,8 @@ class Bindings:
       else:
         rawTypedefType = rawTemplateType
       typedefType = templateType.replace(rawTemplateType, rawTypedefType)
-    return theTypeSpelling if typedefType is None else typedefType
+    result = theTypeSpelling if typedefType is None else typedefType
+    return "void" if result == "C_f" else result
 
   def replaceTemplateArgs(self, string, templateArgs = None):
     newString = string

@@ -1,21 +1,21 @@
-import os
-
 import clang.cindex
 
-from common import includePathArgs, occtBasePath, ocIncludePaths, ocIncludeStatements
+from common import (
+    ALL_OCCT_INCLUDE_STATEMENTS,
+    EMCC_INCLUDE_PATH_ARGS,
+    OCCT_BASE_PATH,
+)
 from filters.enums import filter_enum
-from filters.includes import filter_include
 from filters.typedefs import filter_typedef
 from wasm_gen.common import ignore_duplicate_typedef
 
 
-def parse(additional_cpp_code="", emsdk=False):
+def parse(additional_cpp_code="", emsdk=False, includes=EMCC_INCLUDE_PATH_ARGS):
     index = clang.cindex.Index.create()
     translation_unit = index.parse(
         "myMain.h",
-        ["-x", "c++", "-stdlib=libc++", "-d__emscripten__" if emsdk else ""]
-        + includePathArgs,
-        [["myMain.h", ocIncludeStatements + "\n" + additional_cpp_code]],
+        ["-x", "c++", "-stdlib=libc++", "-d__emscripten__" if emsdk else ""] + includes,
+        [["myMain.h", ALL_OCCT_INCLUDE_STATEMENTS + "\n" + additional_cpp_code]],
     )
 
     if len(translation_unit.diagnostics) > 0:
@@ -76,19 +76,18 @@ def class_dict(tu: clang.cindex.TranslationUnit):
     return d
 
 
+def node_is_include(n: clang.cindex.Cursor):
+    return n.kind == clang.cindex.CursorKind.INCLUSION_DIRECTIVE
+
+
 def includes_generator(tu: clang.cindex.TranslationUnit):
-    return list(
-        filter(
-            lambda x: x.kind == clang.cindex.CursorKind.INCLUSION_DIRECTIVE,
-            tu.cursor.get_children(),
-        )
-    )
+    return [n for n in tu.cursor.get_children() if node_is_include(n)]
 
 
 def underlying_dict(items: list, check_occt_base_path: bool):
     d = dict()
     for x in items:
-        if check_occt_base_path and not x.location.file.name.startswith(occtBasePath):
+        if check_occt_base_path and not x.location.file.name.startswith(OCCT_BASE_PATH):
             continue
         if x.underlying_typedef_type.spelling not in d:
             # original code didn't handle duplicate names, that seems bad?
@@ -96,44 +95,17 @@ def underlying_dict(items: list, check_occt_base_path: bool):
     return d
 
 
-def get_include_name(file_inclusion: clang.cindex.FileInclusion):
-    return os.path.basename(file_inclusion.include.name)
-
-
-def get_includes(path: str):
-    """Get all includes from a"""
-    index = clang.cindex.Index.create()
-    tu = index.parse(
-        path,
-        ["-x", "c++", "-stdlib=libc++"] + list(map(lambda p: "-I" + p, ocIncludePaths)),
-        options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
-    )
-
-    default_include = path.replace(occtBasePath, "").replace(".cxx", ".hxx")
-    valid_includes = sorted(
-        {
-            f'#include "{get_include_name(n)}"'
-            for n in tu.get_includes()
-            if n.include.name.startswith("/occt")
-            and filter_include(get_include_name(n))
-        }
-        | {f'#include "{default_include}"'}
-    )
-
-    index = None
-    tu = None
-    return os.linesep.join(valid_includes) + os.linesep + os.linesep
-
-
 class TuInfo:
     """utility class for tracking information about a translation unit"""
 
-    def __init__(self, custom_code: str, emsdk: bool = True):
-        self.tu = parse(custom_code, emsdk)
+    def __init__(
+        self, custom_code: str, emsdk: bool = True, includes=EMCC_INCLUDE_PATH_ARGS
+    ):
+        self.tu = parse(custom_code, emsdk, includes)
         """the loaded clang translation unit"""
         self.all_children = all_children_generator(self.tu)
         self.typedefs = typedef_generator(self.tu)
-        self.includes = includes_generator(self.tu)
+        self.includes = self.tu.get_includes()
         self.enums = enum_generator(self.tu)
         self.template_typedefs = template_typedef_generator(self.tu)
         self.class_dict = class_dict(self.tu)

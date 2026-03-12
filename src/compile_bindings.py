@@ -7,7 +7,9 @@ from functools import partial
 
 from tqdm import tqdm
 
-from common import additionalIncludePaths, ocIncludePaths
+from common import (
+    OCCT_INCLUDE_PATHS_WITH_3RD_PARTY,
+)
 
 libraryBasePath = "/opencascade.js/build/bindings"
 
@@ -21,16 +23,14 @@ def buildOneFile(args, item):
         "-flto",
         "-fexceptions",
         "-sDISABLE_EXCEPTION_CATCHING=0",
+        "-Wno-deprecated-declarations",
         "-DIGNORE_NO_ATOMICS=1",
         "-DOCCT_NO_PLUGINS",
         "-frtti",
         "-DHAVE_RAPIDJSON",
         "-Os" if args["release"] == "true" else "-O0",
-        # "-g3",
-        # "-gsource-map",
-        # "--source-map-base=http://localhost:8080",
         "-pthread" if args["threading"] == "multi-threaded" else "",
-        *list(map(lambda x: "-I" + x, ocIncludePaths + additionalIncludePaths)),
+        *OCCT_INCLUDE_PATHS_WITH_3RD_PARTY,
         "-c",
         item,
     ]
