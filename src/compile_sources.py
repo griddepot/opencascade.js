@@ -4,14 +4,12 @@ import multiprocessing
 import os
 import subprocess
 import time
-from argparse import ArgumentParser
 
 from tqdm import tqdm
 
+from common import OCCT_INCLUDE_PATH_ARGS_WITH_3RD_PARTY
 from filters.pkgs import filter_packages
 from filters.source_files import filter_source_file
-
-lib_base_path = "/opencascade.js/build/sources"
 
 # Potentially problematic packages, when used with dynamic linking
 # These files contain function pointer definitions and header files and are therefore likely to cause problems.
@@ -35,30 +33,21 @@ lib_base_path = "/opencascade.js/build/sources"
 # "StdObjMgt"
 # "TDF
 
-source_base_path = "/occt/src/"
+OCJS_SRC_PATH = "/opencascade.js/build/sources/"
+OCCT_SRC_PATH = "/occt/src/"
 
-include_paths = []
-include_paths.extend(
-    [
-        "/rapidjson/include",
-    ]
-)
-for dirpath, dirnames, filenames in os.walk(os.path.join(source_base_path)):
-    include_paths.append(dirpath)
-
-INCLUDE_ARGS = [f"-I{p}" for p in include_paths]
 
 BUILD_MULTITHREADED = os.environ["BUILD_MULTITHREADED"] == "1"
 
 
 def build_file(file: str):
-    relative_file_path = file.replace(source_base_path, "")
+    relative_file_path = file.replace(OCCT_SRC_PATH, "")
     try:
-        os.makedirs(f"{lib_base_path}/{os.path.dirname(relative_file_path)}")
+        os.makedirs(f"{OCJS_SRC_PATH}/{os.path.dirname(relative_file_path)}")
     except OSError:
         pass
 
-    object_path = f"{lib_base_path}/{relative_file_path}.o"
+    object_path = f"{OCJS_SRC_PATH}/{relative_file_path}.o"
 
     if os.path.exists(object_path):
         return ("skipped", relative_file_path)
@@ -74,7 +63,7 @@ def build_file(file: str):
         "-DHAVE_RAPIDJSON",
         "-Os",
         "-pthread" if BUILD_MULTITHREADED else "",
-        *INCLUDE_ARGS,
+        *OCCT_INCLUDE_PATH_ARGS_WITH_3RD_PARTY,
         "-c",
         file,
     ]
@@ -93,7 +82,7 @@ def build_file(file: str):
 
 
 allModules = {}
-for dirpath, dirnames, filenames in os.walk(source_base_path):
+for dirpath, dirnames, filenames in os.walk(OCCT_SRC_PATH):
     if not any(x for x in filenames if x == "PACKAGES"):
         continue
     allModules[os.path.basename(dirpath)] = []
@@ -112,43 +101,33 @@ def getModuleNameByPackageName(inputPackageName):
     return ""
 
 
-filesToBuild = []
-for dirpath, dirnames, filenames in os.walk(source_base_path):
-    packageOrModuleName = os.path.basename(dirpath.replace(source_base_path, ""))
-    for item in filenames:
+def get_build_targets():
+    targets = []
+    for dirpath, _, filenames in os.walk(OCCT_SRC_PATH):
+        packageOrModuleName = os.path.basename(dirpath.replace(OCCT_SRC_PATH, ""))
         if not filter_packages(packageOrModuleName) or not filter_packages(
             getModuleNameByPackageName(packageOrModuleName)
         ):
             continue
-        if filter_source_file(dirpath + "/" + item):
-            filesToBuild.append(dirpath + "/" + item)
+        targets.extend(
+            [
+                f"{dirpath}/{item}"
+                for item in filenames
+                if filter_source_file(f"{dirpath}/{item}")
+            ]
+        )
+    return targets
+
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument(
-        dest="threading",
-        choices=["single-threaded", "multi-threaded"],
-        help="Build in single vs. multi-threaded mode",
-    )
-    parser.add_argument(
-        dest="release",
-        choices=["true", "false"],
-        help='Whether to build for release. A value of "false" will build without optimizations (-O0).',
-    )
-    args = parser.parse_args()
-
     try:
-        os.makedirs(lib_base_path)
+        os.makedirs(OCJS_SRC_PATH)
     except Exception:
         print("Unable to make folder for library base path, exiting.")
         quit(1)
 
-    def build_fn(x):
-        return build_file(
-            x,
-        )
-
-    total = len(filesToBuild)
+    build_targets = get_build_targets()
+    total = len(build_targets)
     print(f"Compiling {total} OCCT source files...")
 
     ok = failed = skipped = 0
@@ -156,7 +135,7 @@ if __name__ == "__main__":
 
     with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
         for status, path in tqdm(
-            p.imap_unordered(build_fn, filesToBuild),
+            p.imap_unordered(build_file, build_targets),
             total=total,
             desc="Compiling sources",
             unit="file",

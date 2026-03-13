@@ -3,7 +3,7 @@ import clang.cindex
 from common import (
     ALL_OCCT_INCLUDE_STATEMENTS,
     EMCC_INCLUDE_PATH_ARGS,
-    OCCT_BASE_PATH,
+    OCCT_SRC_PATH,
 )
 from filters.enums import filter_enum
 from filters.typedefs import filter_typedef
@@ -87,7 +87,7 @@ def includes_generator(tu: clang.cindex.TranslationUnit):
 def underlying_dict(items: list, check_occt_base_path: bool):
     d = dict()
     for x in items:
-        if check_occt_base_path and not x.location.file.name.startswith(OCCT_BASE_PATH):
+        if check_occt_base_path and not x.location.file.name.startswith(OCCT_SRC_PATH):
             continue
         if x.underlying_typedef_type.spelling not in d:
             # original code didn't handle duplicate names, that seems bad?

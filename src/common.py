@@ -2,7 +2,7 @@ import os
 
 from filters.includes import filter_include
 
-OCCT_BASE_PATH = "/occt/src/"
+OCCT_SRC_PATH = "/occt/src/"
 
 
 def as_include_args(paths: list[str]) -> list[str]:
@@ -12,8 +12,8 @@ def as_include_args(paths: list[str]) -> list[str]:
 def get_global_includes() -> tuple[list[str], list[str]]:
     includeFiles = list()
     additionalIncludePaths = list()
-    for dirpath, _, filenames in os.walk(OCCT_BASE_PATH):
-        additionalIncludePaths.append(str(dirpath))
+    for dirpath, _, filenames in os.walk(OCCT_SRC_PATH):
+        additionalIncludePaths.append(dirpath)
         for item in filenames:
             if filter_include(item):
                 includeFiles.append(str(os.path.join(dirpath, item)))
@@ -29,6 +29,7 @@ _3RD_PARTY_INCLUDES = [
 ]
 
 OCCT_INCLUDE_PATHS_WITH_3RD_PARTY = OCCT_INCLUDE_PATHS + _3RD_PARTY_INCLUDES
+OCCT_INCLUDE_PATH_ARGS_WITH_3RD_PARTY = as_include_args(OCCT_INCLUDE_PATHS_WITH_3RD_PARTY)
 
 EMSDK_INCLUDES = [
     "/emsdk/upstream/emscripten/system/include/",

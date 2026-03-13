@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import clang.cindex as cx
 from tqdm import tqdm
 
-from common import OCCT_BASE_PATH, OCCT_INCLUDE_PATH_ARGS
+from common import OCCT_SRC_PATH, OCCT_INCLUDE_PATH_ARGS
 from filters.includes import filter_include
 from filters.pkgs import filter_packages
 from tu_info import TuInfo
@@ -75,7 +75,7 @@ def generate_preambles():
     for child in tuInfo.all_children:
         if (
             child.extent.start.file is not None
-            and child.extent.start.file.name.startswith(OCCT_BASE_PATH)
+            and child.extent.start.file.name.startswith(OCCT_SRC_PATH)
             and child.location.file is not None
             and filter_packages(
                 os.path.basename(os.path.dirname(child.location.file.name))
