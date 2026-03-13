@@ -41,15 +41,17 @@ include_paths = []
 include_paths.extend(
     [
         "/rapidjson/include",
-        # "/freetype/include/freetype",
-        # "/freetype/include",
     ]
 )
 for dirpath, dirnames, filenames in os.walk(os.path.join(source_base_path)):
     include_paths.append(dirpath)
 
+INCLUDE_ARGS = [f"-I{p}" for p in include_paths]
 
-def build_object_files(file: str, args: dict):
+BUILD_MULTITHREADED = os.environ["BUILD_MULTITHREADED"] == "1"
+
+
+def build_file(file: str):
     relative_file_path = file.replace(source_base_path, "")
     try:
         os.makedirs(f"{lib_base_path}/{os.path.dirname(relative_file_path)}")
@@ -71,8 +73,8 @@ def build_object_files(file: str, args: dict):
         "-frtti",
         "-DHAVE_RAPIDJSON",
         "-Os",
-        "-pthread" if args["threading"] == "multi-threaded" else "",
-        *list(map(lambda x: "-I" + x, include_paths)),
+        "-pthread" if BUILD_MULTITHREADED else "",
+        *INCLUDE_ARGS,
         "-c",
         file,
     ]
@@ -142,12 +144,8 @@ if __name__ == "__main__":
         quit(1)
 
     def build_fn(x):
-        return build_object_files(
+        return build_file(
             x,
-            {
-                "threading": args.threading,
-                "release": args.release,
-            },
         )
 
     total = len(filesToBuild)

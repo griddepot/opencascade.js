@@ -48,11 +48,10 @@ COPY src/filters /opencascade.js/src/filters/
 
 WORKDIR /opencascade.js/src/
 
-ARG threading=single-threaded
-ARG release=false
-ENV threading=$threading
+ARG multithreaded=0
+ENV BUILD_MULTITHREADED=${multithreaded}
 
-RUN uv run compile_sources.py ${threading} ${release}
+RUN uv run compile_sources.py
 
 # =============================================================
 
