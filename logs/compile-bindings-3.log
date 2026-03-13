@@ -1,0 +1,489 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 3.08kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/emscripten/emsdk:4.0.23
+#2 ...
+
+#3 [internal] load metadata for docker.io/astral/uv:latest
+#3 DONE 0.6s
+
+#2 [internal] load metadata for docker.io/emscripten/emsdk:4.0.23
+#2 DONE 0.6s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 99B done
+#4 DONE 0.0s
+
+#5 [base-image 1/7] FROM docker.io/emscripten/emsdk:4.0.23@sha256:86537645c51e44899812d29820ee3b64b96c321ebb2aba4416a04ceeb1bcde62
+#5 DONE 0.0s
+
+#6 FROM docker.io/astral/uv:latest@sha256:10902f58a1606787602f303954cea099626a4adb02acbac4c69920fe9d278f82
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 4.34kB done
+#7 DONE 0.0s
+
+#8 [stage-preambles 3/7] COPY src/tu_info.py /opencascade.js/src/tu_info.py
+#8 CACHED
+
+#9 [stage-preambles 4/7] COPY src/wasm_gen/ /opencascade.js/src/wasm_gen
+#9 CACHED
+
+#10 [stage-bindgen 3/5] COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py
+#10 CACHED
+
+#11 [stage-uv 4/4] RUN uv sync
+#11 CACHED
+
+#12 [base-image 4/7] WORKDIR /rapidjson/
+#12 CACHED
+
+#13 [base-image 3/7] COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
+#13 CACHED
+
+#14 [base-image 6/7] WORKDIR /occt/
+#14 CACHED
+
+#15 [base-image 5/7] RUN   git clone --depth 1 -b v1.1.0 https://github.com/Tencent/rapidjson.git .
+#15 CACHED
+
+#16 [base-image 7/7] RUN   curl -L "https://github.com/Open-Cascade-SAS/OCCT/archive/refs/tags/V7_9_3.tar.gz" -o occt.tar.gz &&   tar -xzf occt.tar.gz &&   mv OCCT-*/* . &&   mv OCCT-*/.* . || true &&   rmdir OCCT-* || true &&   rm occt.tar.gz
+#16 CACHED
+
+#17 [stage-bindgen 2/5] COPY src/bindings.py /opencascade.js/src/bindings.py
+#17 CACHED
+
+#18 [stage-preambles 1/7] COPY src/filters /opencascade.js/src/filters/
+#18 CACHED
+
+#19 [stage-uv 3/4] WORKDIR /opencascade.js/src/
+#19 CACHED
+
+#20 [stage-uv 1/4] COPY src/pyproject.toml /opencascade.js/src/pyproject.toml
+#20 CACHED
+
+#21 [stage-preambles 5/7] COPY src/generate_preambles.py /opencascade.js/src/generate_preambles.py
+#21 CACHED
+
+#22 [stage-preambles 6/7] WORKDIR /opencascade.js/src/
+#22 CACHED
+
+#23 [base-image 2/7] RUN   apt-get update -y &&   apt-get install -y   build-essential   curl   git   vim
+#23 CACHED
+
+#24 [stage-preambles 2/7] COPY src/common.py /opencascade.js/src/common.py
+#24 CACHED
+
+#25 [stage-bindgen 1/5] COPY --from=stage-preambles /opencascade.js/build/preambles.json /opencascade.js/build/preambles.json
+#25 CACHED
+
+#26 [stage-bindgen 4/5] WORKDIR /opencascade.js/src/
+#26 CACHED
+
+#27 [stage-uv 2/4] COPY src/uv.lock /opencascade.js/src/uv.lock
+#27 CACHED
+
+#28 [stage-preambles 7/7] RUN uv run generate_preambles.py
+#28 CACHED
+
+#29 [stage-bindgen 5/5] RUN uv run generate_bindings.py
+#29 CACHED
+
+#30 [stage-compile-bindings 1/4] COPY src/compile_bindings.py /opencascade.js/src/compile_bindings.py
+#30 DONE 0.0s
+
+#31 [stage-compile-bindings 2/4] COPY src/build_schema_def.py /opencascade.js/src/build_schema_def.py
+#31 DONE 0.0s
+
+#32 [stage-compile-bindings 3/4] WORKDIR /opencascade.js/src/
+#32 DONE 0.0s
+
+#33 [stage-compile-bindings 4/4] RUN uv run compile_bindings.py
+#33 0.680 Compiling 8601 binding files...
+#33 0.806 Compiling bindings:   0%|          | 0/8601 [00:00<?, ?file/s]Compiling bindings:   0%|          | 1/8601 [00:03<8:28:30,  3.55s/file]Compiling bindings:   0%|          | 2/8601 [00:03<3:53:54,  1.63s/file]Compiling bindings:   0%|          | 3/8601 [00:04<2:56:36,  1.23s/file]/opencascade.js/build/bindings/AIS/AIS_Circle.hxx/AIS_Circle.cpp:47:28: error: 'AIS_Circle' does not refer to a value
+#33 5.826    47 |       std::function<GLvoid(AIS_Circle&, emscripten::val, emscripten::val)>([](AIS_Circle& that, emscripten::val theU1, emscripten::val theU2) -> GLvoid {
+#33 5.826       |                            ^
+#33 5.827 /occt/src/AIS/AIS_Circle.hxx:128:24: note: declared here
+#33 5.827   128 | DEFINE_STANDARD_HANDLE(AIS_Circle, AIS_InteractiveObject)
+#33 5.827       |                        ^
+#33 5.828 /opencascade.js/build/bindings/AIS/AIS_Circle.hxx/AIS_Circle.cpp:47:39: error: expected expression
+#33 5.828    47 |       std::function<GLvoid(AIS_Circle&, emscripten::val, emscripten::val)>([](AIS_Circle& that, emscripten::val theU1, emscripten::val theU2) -> GLvoid {
+#33 5.828       |                                       ^
+#33 5.828 /opencascade.js/build/bindings/AIS/AIS_Circle.hxx/AIS_Circle.cpp:47:56: error: expected '(' for function-style cast or type construction
+#33 5.828    47 |       std::function<GLvoid(AIS_Circle&, emscripten::val, emscripten::val)>([](AIS_Circle& that, emscripten::val theU1, emscripten::val theU2) -> GLvoid {
+#33 5.829       |                                         ~~~~~~~~~~~~~~~^
+#33 5.829 /opencascade.js/build/bindings/AIS/AIS_Circle.hxx/AIS_Circle.cpp:47:73: error: expected '(' for function-style cast or type construction
+#33 5.829    47 |       std::function<GLvoid(AIS_Circle&, emscripten::val, emscripten::val)>([](AIS_Circle& that, emscripten::val theU1, emscripten::val theU2) -> GLvoid {
+#33 5.829       |                                                          ~~~~~~~~~~~~~~~^
+#33 5.830 /opencascade.js/build/bindings/AIS/AIS_Circle.hxx/AIS_Circle.cpp:47:21: error: template argument for template type parameter must be a type
+#33 5.830    47 |       std::function<GLvoid(AIS_Circle&, emscripten::val, emscripten::val)>([](AIS_Circle& that, emscripten::val theU1, emscripten::val theU2) -> GLvoid {
+#33 5.830       |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#33 5.832 /emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__functional/function.h:88:17: note: template parameter is declared here
+#33 5.836    88 | template <class _Fp>
+#33 5.836       |                 ^
+#33 5.845 /opencascade.js/build/bindings/AIS/AIS_Circle.hxx/AIS_Circle.cpp:47:146: error: unknown type name 'GLvoid'; did you mean 'void'?
+#33 5.845    47 |       std::function<GLvoid(AIS_Circle&, emscripten::val, emscripten::val)>([](AIS_Circle& that, emscripten::val theU1, emscripten::val theU2) -> GLvoid {
+#33 5.849       |                                                                                                                                                  ^~~~~~
+#33 5.849       |                                                                                                                                                  void
+#33 5.898 Compiling bindings:   0%|          | 4/8601 [00:05<2:14:57,  1.06file/s]6 errors generated.
+#33 6.190 Compiling bindings:   0%|          | 9/8601 [00:05<41:28,  3.45file/s]  Compiling bindings:   0%|          | 11/8601 [00:05<31:50,  4.50file/s]Compiling bindings:   0%|          | 14/8601 [00:05<24:38,  5.81file/s]Compiling bindings:   0%|          | 19/8601 [00:06<16:17,  8.78file/s]Compiling bindings:   0%|          | 21/8601 [00:08<51:18,  2.79file/s]Compiling bindings:   0%|          | 25/8601 [00:08<36:46,  3.89file/s]Compiling bindings:   0%|          | 26/8601 [00:09<38:19,  3.73file/s]/opencascade.js/build/bindings/AIS/AIS_ConnectedInteractive.hxx/AIS_ConnectedInteractive.cpp:43:51: error: expected expression
+#33 10.19    43 |     .function("Connect_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theAnotherObj), AIS_ConnectedInteractive>(&AIS_ConnectedInteractive::Connect), allow_raw_pointers())
+#33 10.20       |                                                   ^
+#33 10.20 /opencascade.js/build/bindings/AIS/AIS_ConnectedInteractive.hxx/AIS_ConnectedInteractive.cpp:44:51: error: expected expression
+#33 10.20    44 |     .function("Connect_2", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theAnotherObj, const gp_Trsf & theLocation), AIS_ConnectedInteractive>(&AIS_ConnectedInteractive::Connect), allow_raw_pointers())
+#33 10.20       |                                                   ^
+#33 10.20 /opencascade.js/build/bindings/AIS/AIS_ConnectedInteractive.hxx/AIS_ConnectedInteractive.cpp:44:117: error: expected expression
+#33 10.20    44 |     .function("Connect_2", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theAnotherObj, const gp_Trsf & theLocation), AIS_ConnectedInteractive>(&AIS_ConnectedInteractive::Connect), allow_raw_pointers())
+#33 10.20       |                                                                                                                     ^
+#33 10.20 /opencascade.js/build/bindings/AIS/AIS_ConnectedInteractive.hxx/AIS_ConnectedInteractive.cpp:45:51: error: expected expression
+#33 10.20    45 |     .function("Connect_3", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theAnotherObj, const opencascade::handle<TopLoc_Datum3D> & theLocation), AIS_ConnectedInteractive>(&AIS_ConnectedInteractive::Connect), allow_raw_pointers())
+#33 10.21       |                                                   ^
+#33 10.21 /opencascade.js/build/bindings/AIS/AIS_ConnectedInteractive.hxx/AIS_ConnectedInteractive.cpp:45:117: error: expected expression
+#33 10.21    45 |     .function("Connect_3", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theAnotherObj, const opencascade::handle<TopLoc_Datum3D> & theLocation), AIS_ConnectedInteractive>(&AIS_ConnectedInteractive::Connect), allow_raw_pointers())
+#33 10.21       |                                                                                                                     ^
+#33 10.36 Compiling bindings:   0%|          | 27/8601 [00:09<38:48,  3.68file/s]5 errors generated.
+#33 10.49 Compiling bindings:   0%|          | 29/8601 [00:09<30:01,  4.76file/s]Compiling bindings:   0%|          | 30/8601 [00:09<29:20,  4.87file/s]/opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:55:28: error: 'AIS_ColorScale' does not refer to a value
+#33 10.89    55 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMin, emscripten::val theMax) -> GLvoid {
+#33 10.90       |                            ^
+#33 10.90 /occt/src/AIS/AIS_ColorScale.hxx:39:7: note: declared here
+#33 10.90    39 | class AIS_ColorScale : public AIS_InteractiveObject
+#33 10.90       |       ^
+#33 10.90 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:55:43: error: expected expression
+#33 10.90    55 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMin, emscripten::val theMax) -> GLvoid {
+#33 10.90       |                                           ^
+#33 10.90 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:55:60: error: expected '(' for function-style cast or type construction
+#33 10.90    55 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMin, emscripten::val theMax) -> GLvoid {
+#33 10.90       |                                             ~~~~~~~~~~~~~~~^
+#33 10.90 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:55:77: error: expected '(' for function-style cast or type construction
+#33 10.90    55 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMin, emscripten::val theMax) -> GLvoid {
+#33 10.90       |                                                              ~~~~~~~~~~~~~~~^
+#33 10.90 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:55:21: error: template argument for template type parameter must be a type
+#33 10.90    55 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMin, emscripten::val theMax) -> GLvoid {
+#33 10.90       |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#33 10.91 /emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__functional/function.h:88:17: note: template parameter is declared here
+#33 10.91    88 | template <class _Fp>
+#33 10.91       |                 ^
+#33 10.91 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:55:156: error: unknown type name 'GLvoid'; did you mean 'void'?
+#33 10.92    55 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMin, emscripten::val theMax) -> GLvoid {
+#33 10.92       |                                                                                                                                                            ^~~~~~
+#33 10.92       |                                                                                                                                                            void
+#33 10.92 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:67:28: error: 'AIS_ColorScale' does not refer to a value
+#33 10.92    67 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMinAngle, emscripten::val theMaxAngle) -> GLvoid {
+#33 10.92       |                            ^
+#33 10.92 /occt/src/AIS/AIS_ColorScale.hxx:39:7: note: declared here
+#33 10.92    39 | class AIS_ColorScale : public AIS_InteractiveObject
+#33 10.92       |       ^
+#33 10.92 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:67:43: error: expected expression
+#33 10.92    67 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMinAngle, emscripten::val theMaxAngle) -> GLvoid {
+#33 10.92       |                                           ^
+#33 10.92 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:67:60: error: expected '(' for function-style cast or type construction
+#33 10.92    67 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMinAngle, emscripten::val theMaxAngle) -> GLvoid {
+#33 10.92       |                                             ~~~~~~~~~~~~~~~^
+#33 10.92 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:67:77: error: expected '(' for function-style cast or type construction
+#33 10.92    67 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMinAngle, emscripten::val theMaxAngle) -> GLvoid {
+#33 10.92       |                                                              ~~~~~~~~~~~~~~~^
+#33 10.92 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:67:21: error: template argument for template type parameter must be a type
+#33 10.92    67 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMinAngle, emscripten::val theMaxAngle) -> GLvoid {
+#33 10.92       |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#33 10.92 /emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__functional/function.h:88:17: note: template parameter is declared here
+#33 10.92    88 | template <class _Fp>
+#33 10.92       |                 ^
+#33 10.92 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:67:166: error: unknown type name 'GLvoid'; did you mean 'void'?
+#33 10.92    67 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theMinAngle, emscripten::val theMaxAngle) -> GLvoid {
+#33 10.92       |                                                                                                                                                                      ^~~~~~
+#33 10.92       |                                                                                                                                                                      void
+#33 10.92 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:95:53: error: unexpected type name 'Aspect_SequenceOfColor': expected expression
+#33 10.92    95 |     .function("GetColors_1", select_overload<GLvoid(Aspect_SequenceOfColor & theColors)const, AIS_ColorScale>(&AIS_ColorScale::GetColors), allow_raw_pointers())
+#33 10.92       |                                                     ^
+#33 10.93 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:95:78: error: use of undeclared identifier 'theColors'
+#33 10.94    95 |     .function("GetColors_1", select_overload<GLvoid(Aspect_SequenceOfColor & theColors)const, AIS_ColorScale>(&AIS_ColorScale::GetColors), allow_raw_pointers())
+#33 10.94       |                                                                              ^~~~~~~~~
+#33 10.94 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:95:88: error: expected '>'
+#33 10.94    95 |     .function("GetColors_1", select_overload<GLvoid(Aspect_SequenceOfColor & theColors)const, AIS_ColorScale>(&AIS_ColorScale::GetColors), allow_raw_pointers())
+#33 10.94       |                                                                                        ^
+#33 10.94 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:95:45: note: to match this '<'
+#33 10.94    95 |     .function("GetColors_1", select_overload<GLvoid(Aspect_SequenceOfColor & theColors)const, AIS_ColorScale>(&AIS_ColorScale::GetColors), allow_raw_pointers())
+#33 10.94       |                                             ^
+#33 10.94 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:95:95: error: 'AIS_ColorScale' does not refer to a value
+#33 10.94    95 |     .function("GetColors_1", select_overload<GLvoid(Aspect_SequenceOfColor & theColors)const, AIS_ColorScale>(&AIS_ColorScale::GetColors), allow_raw_pointers())
+#33 10.94       |                                                                                               ^
+#33 10.94 /occt/src/AIS/AIS_ColorScale.hxx:39:7: note: declared here
+#33 10.94    39 | class AIS_ColorScale : public AIS_InteractiveObject
+#33 10.94       |       ^
+#33 10.94 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:114:28: error: 'AIS_ColorScale' does not refer to a value
+#33 10.94   114 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theBreadth, emscripten::val theHeight) -> GLvoid {
+#33 10.94       |                            ^
+#33 10.94 /occt/src/AIS/AIS_ColorScale.hxx:39:7: note: declared here
+#33 10.94    39 | class AIS_ColorScale : public AIS_InteractiveObject
+#33 10.94       |       ^
+#33 10.94 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:114:43: error: expected expression
+#33 10.94   114 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theBreadth, emscripten::val theHeight) -> GLvoid {
+#33 10.94       |                                           ^
+#33 10.94 /opencascade.js/build/bindings/AIS/AIS_ColorScale.hxx/AIS_ColorScale.cpp:114:60: error: expected '(' for function-style cast or type construction
+#33 10.94   114 |       std::function<GLvoid(AIS_ColorScale&, emscripten::val, emscripten::val)>([](AIS_ColorScale& that, emscripten::val theBreadth, emscripten::val theHeight) -> GLvoid {
+#33 10.94       |                                             ~~~~~~~~~~~~~~~^
+#33 10.94 fatal error: too many errors emitted, stopping now [-ferror-limit=]
+#33 10.94 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:20 errors generated.
+#33 10.95 55:28: error: 'AIS_InteractiveObject' does not refer to a value
+#33 10.95    55 |       std::function<GLvoid(AIS_InteractiveObject&, emscripten::val, Standard_Integer)>([](AIS_InteractiveObject& that, emscripten::val theOStream, Standard_Integer theDepth) -> GLvoid {
+#33 10.95       |                            ^
+#33 10.95 /occt/src/AIS/AIS_InteractiveObject.hxx:162:24: note: declared here
+#33 10.95   162 | DEFINE_STANDARD_HANDLE(AIS_InteractiveObject, SelectMgr_SelectableObject)
+#33 10.95       |                        ^
+#33 10.95 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:55:50: error: expected expression
+#33 10.95    55 |       std::function<GLvoid(AIS_InteractiveObject&, emscripten::val, Standard_Integer)>([](AIS_InteractiveObject& that, emscripten::val theOStream, Standard_Integer theDepth) -> GLvoid {
+#33 10.95       |                                                  ^
+#33 10.95 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:55:67: error: expected '(' for function-style cast or type construction
+#33 10.95    55 |       std::function<GLvoid(AIS_InteractiveObject&, emscripten::val, Standard_Integer)>([](AIS_InteractiveObject& that, emscripten::val theOStream, Standard_Integer theDepth) -> GLvoid {
+#33 10.95       |                                                    ~~~~~~~~~~~~~~~^
+#33 10.95 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:55:69: error: unexpected type name 'Standard_Integer': expected expression
+#33 10.95    55 |       std::function<GLvoid(AIS_InteractiveObject&, emscripten::val, Standard_Integer)>([](AIS_InteractiveObject& that, emscripten::val theOStream, Standard_Integer theDepth) -> GLvoid {
+#33 10.95       |                                                                     ^
+#33 10.95 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:55:21: error: template argument for template type parameter must be a type
+#33 10.95    55 |       std::function<GLvoid(AIS_InteractiveObject&, emscripten::val, Standard_Integer)>([](AIS_InteractiveObject& that, emscripten::val theOStream, Standard_Integer theDepth) -> GLvoid {
+#33 10.96       |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#33 10.96 /emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__functional/function.h:88:17: note: template parameter is declared here
+#33 10.96    88 | template <class _Fp>
+#33 10.96       |                 ^
+#33 10.96 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:55:178: error: unknown type name 'GLvoid'; did you mean 'void'?
+#33 10.96    55 |       std::function<GLvoid(AIS_InteractiveObject&, emscripten::val, Standard_Integer)>([](AIS_InteractiveObject& that, emscripten::val theOStream, Standard_Integer theDepth) -> GLvoid {
+#33 10.97       |                                                                                                                                                                                  ^~~~~~
+#33 10.97       |                                                                                                                                                                                  void
+#33 10.97 Compiling bindings:   0%|          | 32/8601 [00:10<26:47,  5.33file/s]/opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:32:62: error: expected expression
+#33 11.00    32 |     .class_function("GetLineColor_2", select_overload<GLvoid(const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_Color & TheLineColor)>(&AIS_GraphicTool::GetLineColor), allow_raw_pointers())
+#33 11.00       |                                                              ^
+#33 11.00 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:32:113: error: expected expression
+#33 11.00    32 |     .class_function("GetLineColor_2", select_overload<GLvoid(const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_Color & TheLineColor)>(&AIS_GraphicTool::GetLineColor), allow_raw_pointers())
+#33 11.01       |                                                                                                                 ^
+#33 11.01 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:32:160: error: 'Quantity_Color' does not refer to a value
+#33 11.01    32 |     .class_function("GetLineColor_2", select_overload<GLvoid(const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_Color & TheLineColor)>(&AIS_GraphicTool::GetLineColor), allow_raw_pointers())
+#33 11.01       |                                                                                                                                                                ^
+#33 11.01 /occt/src/AIS/AIS_GraphicTool.hxx:28:7: note: declared here
+#33 11.01    28 | class Quantity_Color;
+#33 11.01       |       ^
+#33 11.02 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:32:177: error: use of undeclared identifier 'TheLineColor'; did you mean 'AIS_GraphicTool::GetLineColor'?
+#33 11.02    32 |     .class_function("GetLineColor_2", select_overload<GLvoid(const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_Color & TheLineColor)>(&AIS_GraphicTool::GetLineColor), allow_raw_pointers())
+#33 11.03       |                                                                                                                                                                                 ^~~~~~~~~~~~
+#33 11.03       |                                                                                                                                                                                 AIS_GraphicTool::GetLineColor
+#33 11.03 /occt/src/AIS/AIS_GraphicTool.hxx:36:47: note: 'AIS_GraphicTool::GetLineColor' declared here
+#33 11.03    36 |   Standard_EXPORT static Quantity_NameOfColor GetLineColor(
+#33 11.03       |                                               ^
+#33 11.03 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:18: error: expected expression
+#33 11.03    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                  ^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:20: error: expected expression
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                    ^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:63: error: expected expression
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                                                               ^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:90: error: 'Quantity_NameOfColor' does not refer to a value
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                                                                                          ^
+#33 11.04 /occt/src/Quantity/Quantity_NameOfColor.hxx:22:6: note: declared here
+#33 11.04    22 | enum Quantity_NameOfColor
+#33 11.04       |      ^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:112: error: expected expression
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                                                                                                                ^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:129: error: expected '(' for function-style cast or type construction
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                                                                                                                  ~~~~~~~~~~~~~~~^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:131: error: 'Aspect_TypeOfLine' does not refer to a value
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                                                                                                                                   ^
+#33 11.04 /occt/src/Aspect/Aspect_TypeOfLine.hxx:20:6: note: declared here
+#33 11.04    20 | enum Aspect_TypeOfLine
+#33 11.04       |      ^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:150: error: expected expression
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.04       |                                                                                                                                                      ^
+#33 11.04 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:153: error: expected expression
+#33 11.04    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.05       |                                                                                                                                                         ^
+#33 11.05 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:155: error: expected expression
+#33 11.05    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.07       |                                                                                                                                                           ^
+#33 11.07 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:206: error: expected expression
+#33 11.07    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.07       |                                                                                                                                                                                                              ^
+#33 11.07 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:253: error: 'Quantity_NameOfColor' does not refer to a value
+#33 11.07    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.07       |                                                                                                                                                                                                                                                             ^
+#33 11.07 /occt/src/Quantity/Quantity_NameOfColor.hxx:22:6: note: declared here
+#33 11.07    22 | enum Quantity_NameOfColor
+#33 11.07       |      ^
+#33 11.08 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:276: error: use of undeclared identifier 'aCol'; did you mean 'atol'?
+#33 11.08    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.09       |                                                                                                                                                                                                                                                                                    ^~~~
+#33 11.09       |                                                                                                                                                                                                                                                                                    atol
+#33 11.09 /emsdk/upstream/emscripten/cache/sysroot/include/stdlib.h:24:6: note: 'atol' declared here
+#33 11.09    24 | long atol (const char *);
+#33 11.09       |      ^
+#33 11.09 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:298: error: expected '(' for function-style cast or type construction
+#33 11.09    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.09       |                                                                                                                                                                                                                                                                                          ~~~~~~~~~~~~~~~ ^
+#33 11.09 /opencascade.js/build/bindings/AIS/AIS_GraphicTool.hxx/AIS_GraphicTool.cpp:36:306: error: 'Aspect_TypeOfLine' does not refer to a value
+#33 11.09    36 |       ((GLvoid (*)(const opencascade::handle<Prs3d_Drawer> &, const AIS_TypeOfAttribute, Quantity_NameOfColor &, emscripten::val, Aspect_TypeOfLine &))[](const opencascade::handle<Prs3d_Drawer> & aDrawer, const AIS_TypeOfAttribute TheTypeOfAttributes, Quantity_NameOfColor & aCol, emscripten::val aWidth, Aspect_TypeOfLine & aTyp) -> GLvoid {
+#33 11.09       |                                                                                                                                                                                                                                                                                                                  ^
+#33 11.09 /occt/src/Aspect/Aspect_TypeOfLine.hxx:20:6: note: declared here
+#33 11.09    20 | enum Aspect_TypeOfLine
+#33 11.09       |      ^
+#33 11.10 fatal error: too many errors emitted, stopping now [-ferror-limit=]
+#33 11.10 20 errors generated.
+#33 11.15 Compiling bindings:   0%|          | 33/8601 [00:10<26:22,  5.41file/s]In file included from /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:8:
+#33 11.26 In file included from /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/bind.h:24:
+#33 11.26 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:624:12: error: call to deleted constructor of 'std::ostream'
+#33 11.26   624 |     return BindingType<Ret>::fromWireType(result);
+#33 11.26       |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#33 11.26 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:521:12: note: in instantiation of function template specialization 'emscripten::val::internalCallWithPolicy<emscripten::internal::EM_INVOKER_KIND::CAST, emscripten::internal::WithPolicies<emscripten::allow_raw_pointers>, std::ostream, const emscripten::val &>' requested here
+#33 11.26   521 |     return internalCallWithPolicy<EM_INVOKER_KIND::CAST, WithPolicies<Policies...>, T>(as_handle(), nullptr, *this);
+#33 11.26       |            ^
+#33 11.26 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:15:14: note: in instantiation of function template specialization 'emscripten::val::as<std::ostream, emscripten::allow_raw_pointers>' requested here
+#33 11.26    15 |     return v.as<T>(allow_raw_pointers());
+#33 11.26       |              ^
+#33 11.26 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:56:31: note: in instantiation of function template specialization 'getReferenceValue<std::ostream>' requested here
+#33 11.26    56 |         auto ref_theOStream = getReferenceValue<Standard_OStream>(theOStream);
+#33 11.26       |                               ^
+#33 11.26 /emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__ostream/basic_ostream.h:58:3: note: 'basic_ostream' has been explicitly marked deleted here
+#33 11.26    58 |   basic_ostream(const basic_ostream& __rhs)            = delete;
+#33 11.26       |   ^
+#33 11.26 In file included from /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:8:
+#33 11.26 In file included from /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/bind.h:24:
+#33 11.26 In file included from /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:13:
+#33 11.26 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/wire.h:391:20: error: call to deleted constructor of 'ActualT' (aka 'std::ostream')
+#33 11.26   391 |         return new ActualT(v);
+#33 11.27       |                    ^       ~
+#33 11.27 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:245:52: note: in instantiation of function template specialization 'emscripten::internal::GenericBindingType<std::ostream>::toWireType<const std::ostream &>' requested here
+#33 11.27   245 |   writeGenericWireType(cursor, BindingType<First>::toWireType(std::forward<First>(first), rvp::default_tag{}));
+#33 11.27       |                                                    ^
+#33 11.27 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:253:5: note: in instantiation of function template specialization 'emscripten::internal::writeGenericWireTypes<const std::ostream &>' requested here
+#33 11.27   253 |     writeGenericWireTypes(cursor, std::forward<Args>(args)...);
+#33 11.27       |     ^
+#33 11.27 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:603:27: note: in instantiation of member function 'emscripten::internal::WireTypePack<const std::ostream &>::WireTypePack' requested here
+#33 11.27   603 |     WireTypePack<Args...> argv(std::forward<Args>(args)...);
+#33 11.27       |                           ^
+#33 11.27 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:353:20: note: in instantiation of function template specialization 'emscripten::val::internalCallWithPolicy<emscripten::internal::EM_INVOKER_KIND::CAST, emscripten::internal::WithPolicies<>, emscripten::val, const std::ostream &>' requested here
+#33 11.27   353 |     new (this) val(internalCallWithPolicy<EM_INVOKER_KIND::CAST, WithPolicies<Policies...>, val>(nullptr, nullptr, std::forward<T>(value)));
+#33 11.27       |                    ^
+#33 11.27 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:629:12: note: in instantiation of function template specialization 'emscripten::val::val<const std::ostream &>' requested here
+#33 11.27   629 |     return val(v, policies...);
+#33 11.27       |            ^
+#33 11.27 /emsdk/upstream/emscripten/cache/sysroot/include/emscripten/val.h:488:74: note: in instantiation of function template specialization 'emscripten::val::val_ref<std::ostream>' requested here
+#33 11.27   488 |     internal::_emval_set_property(as_handle(), val_ref(key).as_handle(), val_ref(value, policies...).as_handle());
+#33 11.27       |                                                                          ^
+#33 11.27 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:25:7: note: in instantiation of function template specialization 'emscripten::val::set<char[8], std::ostream>' requested here
+#33 11.27    25 |     v.set("current", val);
+#33 11.27       |       ^
+#33 11.27 /opencascade.js/build/bindings/AIS/AIS_InteractiveObject.hxx/AIS_InteractiveObject.cpp:58:9: note: in instantiation of function template specialization 'updateReferenceValue<std::ostream>' requested here
+#33 11.27    58 |         updateReferenceValue<Standard_OStream>(theOStream, ref_theOStream);
+#33 11.27       |         ^
+#33 11.27 /emsdk/upstream/emscripten/cache/sysroot/include/c++/v1/__ostream/basic_ostream.h:58:3: note: 'basic_ostream' has been explicitly marked deleted here
+#33 11.27    58 |   basic_ostream(const basic_ostream& __rhs)            = delete;
+#33 11.28       |   ^
+#33 11.28 8 errors generated.
+#33 11.30 Compiling bindings:   0%|          | 34/8601 [00:10<25:16,  5.65file/s]Compiling bindings:   0%|          | 35/8601 [00:10<28:12,  5.06file/s]Compiling bindings:   0%|          | 38/8601 [00:10<18:08,  7.87file/s]Compiling bindings:   0%|          | 39/8601 [00:11<30:49,  4.63file/s]/opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:51:51: error: expected expression
+#33 12.35    51 |     .function("Display_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Boolean theToUpdateViewer), AIS_InteractiveContext>(&AIS_InteractiveContext::Display), allow_raw_pointers())
+#33 12.35       |                                                   ^
+#33 12.35 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:51:111: error: expected expression
+#33 12.35    51 |     .function("Display_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Boolean theToUpdateViewer), AIS_InteractiveContext>(&AIS_InteractiveContext::Display), allow_raw_pointers())
+#33 12.36       |                                                                                                               ^
+#33 12.36 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:52:51: error: expected expression
+#33 12.36    52 |     .function("Display_2", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Integer theDispMode, const Standard_Integer theSelectionMode, const Standard_Boolean theToUpdateViewer, const PrsMgr_DisplayStatus theDispStatus), AIS_InteractiveContext>(&AIS_InteractiveContext::Display), allow_raw_pointers())
+#33 12.37       |                                                   ^
+#33 12.37 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:52:111: error: expected expression
+#33 12.37    52 |     .function("Display_2", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Integer theDispMode, const Standard_Integer theSelectionMode, const Standard_Boolean theToUpdateViewer, const PrsMgr_DisplayStatus theDispStatus), AIS_InteractiveContext>(&AIS_InteractiveContext::Display), allow_raw_pointers())
+#33 12.37       |                                                                                                               ^
+#33 12.37 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:52:147: error: expected expression
+#33 12.37    52 |     .function("Display_2", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Integer theDispMode, const Standard_Integer theSelectionMode, const Standard_Boolean theToUpdateViewer, const PrsMgr_DisplayStatus theDispStatus), AIS_InteractiveContext>(&AIS_InteractiveContext::Display), allow_raw_pointers())
+#33 12.39       |                                                                                                                                                   ^
+#33 12.39 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:52:188: error: expected expression
+#33 12.39    52 |     .function("Display_2", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Integer theDispMode, const Standard_Integer theSelectionMode, const Standard_Boolean theToUpdateViewer, const PrsMgr_DisplayStatus theDispStatus), AIS_InteractiveContext>(&AIS_InteractiveContext::Display), allow_raw_pointers())
+#33 12.39       |                                                                                                                                                                                            ^
+#33 12.39 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:52:230: error: expected expression
+#33 12.39    52 |     .function("Display_2", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Integer theDispMode, const Standard_Integer theSelectionMode, const Standard_Boolean theToUpdateViewer, const PrsMgr_DisplayStatus theDispStatus), AIS_InteractiveContext>(&AIS_InteractiveContext::Display), allow_raw_pointers())
+#33 12.40       |                                                                                                                                                                                                                                      ^
+#33 12.40 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:53:48: error: expected expression
+#33 12.40    53 |     .function("Load_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theObj, const Standard_Integer theSelectionMode), AIS_InteractiveContext>(&AIS_InteractiveContext::Load), allow_raw_pointers())
+#33 12.40       |                                                ^
+#33 12.40 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:53:107: error: expected expression
+#33 12.40    53 |     .function("Load_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theObj, const Standard_Integer theSelectionMode), AIS_InteractiveContext>(&AIS_InteractiveContext::Load), allow_raw_pointers())
+#33 12.40       |                                                                                                           ^
+#33 12.40 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:62:53: error: expected expression
+#33 12.40    62 |     .function("Redisplay_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Boolean theToUpdateViewer, const Standard_Boolean theAllModes), AIS_InteractiveContext>(&AIS_InteractiveContext::Redisplay), allow_raw_pointers())
+#33 12.40       |                                                     ^
+#33 12.40 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:62:113: error: expected expression
+#33 12.40    62 |     .function("Redisplay_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Boolean theToUpdateViewer, const Standard_Boolean theAllModes), AIS_InteractiveContext>(&AIS_InteractiveContext::Redisplay), allow_raw_pointers())
+#33 12.41       |                                                                                                                 ^
+#33 12.41 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:62:155: error: expected expression
+#33 12.41    62 |     .function("Redisplay_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Standard_Boolean theToUpdateViewer, const Standard_Boolean theAllModes), AIS_InteractiveContext>(&AIS_InteractiveContext::Redisplay), allow_raw_pointers())
+#33 12.42       |                                                                                                                                                           ^
+#33 12.42 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:63:53: error: expected expression
+#33 12.42    63 |     .function("Redisplay_2", select_overload<GLvoid(const AIS_KindOfInteractive theTypeOfObject, const Standard_Integer theSignature, const Standard_Boolean theToUpdateViewer), AIS_InteractiveContext>(&AIS_InteractiveContext::Redisplay), allow_raw_pointers())
+#33 12.42       |                                                     ^
+#33 12.42 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:63:98: error: expected expression
+#33 12.42    63 |     .function("Redisplay_2", select_overload<GLvoid(const AIS_KindOfInteractive theTypeOfObject, const Standard_Integer theSignature, const Standard_Boolean theToUpdateViewer), AIS_InteractiveContext>(&AIS_InteractiveContext::Redisplay), allow_raw_pointers())
+#33 12.43       |                                                                                                  ^
+#33 12.43 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:63:135: error: expected expression
+#33 12.43    63 |     .function("Redisplay_2", select_overload<GLvoid(const AIS_KindOfInteractive theTypeOfObject, const Standard_Integer theSignature, const Standard_Boolean theToUpdateViewer), AIS_InteractiveContext>(&AIS_InteractiveContext::Redisplay), allow_raw_pointers())
+#33 12.43       |                                                                                                                                       ^
+#33 12.43 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:68:61: error: expected expression
+#33 12.43    68 |     .function("SetHighlightStyle_1", select_overload<GLvoid(const Prs3d_TypeOfHighlight theStyleType, const opencascade::handle<Prs3d_Drawer> & theStyle), AIS_InteractiveContext>(&AIS_InteractiveContext::SetHighlightStyle), allow_raw_pointers())
+#33 12.43       |                                                             ^
+#33 12.43 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:68:103: error: expected expression
+#33 12.43    68 |     .function("SetHighlightStyle_1", select_overload<GLvoid(const Prs3d_TypeOfHighlight theStyleType, const opencascade::handle<Prs3d_Drawer> & theStyle), AIS_InteractiveContext>(&AIS_InteractiveContext::SetHighlightStyle), allow_raw_pointers())
+#33 12.43       |                                                                                                       ^
+#33 12.43 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:70:61: error: expected expression
+#33 12.43    70 |     .function("SetHighlightStyle_2", select_overload<GLvoid(const opencascade::handle<Prs3d_Drawer> & theStyle), AIS_InteractiveContext>(&AIS_InteractiveContext::SetHighlightStyle), allow_raw_pointers())
+#33 12.43       |                                                             ^
+#33 12.43 /opencascade.js/build/bindings/AIS/AIS_InteractiveContext.hxx/AIS_InteractiveContext.cpp:80:62: error: expected expression
+#33 12.43    80 |     .function("SetDisplayPriority_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theIObj, const Graphic3d_DisplayPriority thePriority), AIS_InteractiveContext>(&AIS_InteractiveContext::SetDisplayPriority), allow_raw_pointers())
+#33 12.44       |                                                              ^
+#33 12.44 fatal error: too many errors emitted, stopping now [-ferror-limit=]
+#33 12.45 20 errors generated.
+#33 12.48 Compiling bindings:   0%|          | 40/8601 [00:11<29:07,  4.90file/s]Compiling bindings:   0%|          | 41/8601 [00:12<41:33,  3.43file/s]Compiling bindings:   0%|          | 42/8601 [00:13<1:07:34,  2.11file/s]Compiling bindings:   1%|          | 44/8601 [00:13<45:18,  3.15file/s]  Compiling bindings:   1%|          | 47/8601 [00:13<26:19,  5.42file/s]/opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_ManipulatorObjectSequence.cpp:42:50: error: expected expression
+#33 14.59    42 |     .function("Append_1", select_overload<GLvoid(const int & theItem), AIS_ManipulatorObjectSequence>(&AIS_ManipulatorObjectSequence::Append), allow_raw_pointers())
+#33 14.60       |                                                  ^
+#33 14.60 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_ManipulatorObjectSequence.cpp:43:115: error: expected '(' for function-style cast or type construction
+#33 14.60    43 |     .function("Append_2", select_overload<GLvoid(NCollection_Sequence<opencascade::handle<AIS_InteractiveObject>> & theSequence), AIS_ManipulatorObjectSequence>(&AIS_ManipulatorObjectSequence::Append), allow_raw_pointers())
+#33 14.60       |                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^
+#33 14.61 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_ManipulatorObjectSequence.cpp:43:117: error: use of undeclared identifier 'theSequence'
+#33 14.61    43 |     .function("Append_2", select_overload<GLvoid(NCollection_Sequence<opencascade::handle<AIS_InteractiveObject>> & theSequence), AIS_ManipulatorObjectSequence>(&AIS_ManipulatorObjectSequence::Append), allow_raw_pointers())
+#33 14.61       |                                                                                                                     ^~~~~~~~~~~
+#33 15.00 3 errors generated.
+#33 15.12 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:41:51: error: expected expression
+#33 15.12    41 |     .function("SetPart_1", select_overload<GLvoid(const Standard_Integer theAxisIndex, const AIS_ManipulatorMode theMode, const Standard_Boolean theIsEnabled), AIS_Manipulator>(&AIS_Manipulator::SetPart), allow_raw_pointers())
+#33 15.13       |                                                   ^
+#33 15.13 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:41:88: error: expected expression
+#33 15.13    41 |     .function("SetPart_1", select_overload<GLvoid(const Standard_Integer theAxisIndex, const AIS_ManipulatorMode theMode, const Standard_Boolean theIsEnabled), AIS_Manipulator>(&AIS_Manipulator::SetPart), allow_raw_pointers())
+#33 15.14       |                                                                                        ^
+#33 15.14 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:41:123: error: expected expression
+#33 15.14    41 |     .function("SetPart_1", select_overload<GLvoid(const Standard_Integer theAxisIndex, const AIS_ManipulatorMode theMode, const Standard_Boolean theIsEnabled), AIS_Manipulator>(&AIS_Manipulator::SetPart), allow_raw_pointers())
+#33 15.15       |                                                                                                                           ^
+#33 15.15 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:42:51: error: expected expression
+#33 15.15    42 |     .function("SetPart_2", select_overload<GLvoid(const AIS_ManipulatorMode theMode, const Standard_Boolean theIsEnabled), AIS_Manipulator>(&AIS_Manipulator::SetPart), allow_raw_pointers())
+#33 15.16       |                                                   ^
+#33 15.16 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:42:86: error: expected expression
+#33 15.16    42 |     .function("SetPart_2", select_overload<GLvoid(const AIS_ManipulatorMode theMode, const Standard_Boolean theIsEnabled), AIS_Manipulator>(&AIS_Manipulator::SetPart), allow_raw_pointers())
+#33 15.16       |                                                                                      ^
+#33 15.16 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:43:50: error: expected expression
+#33 15.16    43 |     .function("Attach_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theObject, const OptionsForAttach & theOptions), AIS_Manipulator>(&AIS_Manipulator::Attach), allow_raw_pointers())
+#33 15.16       |                                                  ^
+#33 15.16 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:43:112: error: expected expression
+#33 15.16    43 |     .function("Attach_1", select_overload<GLvoid(const opencascade::handle<AIS_InteractiveObject> & theObject, const OptionsForAttach & theOptions), AIS_Manipulator>(&AIS_Manipulator::Attach), allow_raw_pointers())
+#33 15.16       |                                                                                                                ^
+#33 15.16 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:44:50: error: expected expression
+#33 15.16    44 |     .function("Attach_2", select_overload<GLvoid(const opencascade::handle<AIS_ManipulatorObjectSequence> & theObject, const OptionsForAttach & theOptions), AIS_Manipulator>(&AIS_Manipulator::Attach), allow_raw_pointers())
+#33 15.16       |                                                  ^
+#33 15.16 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:44:120: error: expected expression
+#33 15.16    44 |     .function("Attach_2", select_overload<GLvoid(const opencascade::handle<AIS_ManipulatorObjectSequence> & theObject, const OptionsForAttach & theOptions), AIS_Manipulator>(&AIS_Manipulator::Attach), allow_raw_pointers())
+#33 15.16       |                                                                                                                        ^
+#33 15.16 /opencascade.js/build/bindings/AIS/AIS_Manipulator.hxx/AIS_Manipulator.cpp:50:53: error: expected expression
+#33 15.16    50 |     .function("Transform_1", select_overload<GLvoid(const gp_Trsf & aTrsf), AIS_Manipulator>(&AIS_Manipulator::Transform), allow_raw_pointers())
+#33 15.16       |                                                     ^
+#33 CANCELED
+ERROR: failed to build: failed to solve: Canceled: context canceled

@@ -1,7 +1,6 @@
-import clang.cindex
-
+import clang.cindex as cx
+from typing import Callable
 from common import (
-    ALL_OCCT_INCLUDE_STATEMENTS,
     EMCC_INCLUDE_PATH_ARGS,
     OCCT_SRC_PATH,
 )
@@ -10,12 +9,17 @@ from filters.typedefs import filter_typedef
 from wasm_gen.common import ignore_duplicate_typedef
 
 
-def parse(additional_cpp_code="", emsdk=False, includes=EMCC_INCLUDE_PATH_ARGS):
-    index = clang.cindex.Index.create()
+def default_parse(
+    path: str,
+    additional_cpp_code: list[(str, str)] = [],
+    additional_flags: list[str] = [],
+    includes: list[str] = EMCC_INCLUDE_PATH_ARGS,
+):
+    index = cx.Index.create()
     translation_unit = index.parse(
-        "myMain.h",
-        ["-x", "c++", "-stdlib=libc++", "-d__emscripten__" if emsdk else ""] + includes,
-        [["myMain.h", ALL_OCCT_INCLUDE_STATEMENTS + "\n" + additional_cpp_code]],
+        path,
+        ["-x", "c++", "-stdlib=libc++"] + additional_flags + includes,
+        [[name, code] for name, name, code in additional_cpp_code],
     )
 
     if len(translation_unit.diagnostics) > 0:
@@ -26,90 +30,91 @@ def parse(additional_cpp_code="", emsdk=False, includes=EMCC_INCLUDE_PATH_ARGS):
     return translation_unit
 
 
-def template_typedef_generator(tu):
-    return list(
-        filter(
-            lambda x: (
-                x.kind == clang.cindex.CursorKind.TYPEDEF_DECL
-                and not (x.get_definition() is None or not x == x.get_definition())
-                and filter_typedef(x)
-                and x.type.get_num_template_arguments() != -1
-                and not ignore_duplicate_typedef(x)
-            ),
-            tu.cursor.get_children(),
-        )
+def is_template_typedef_node(node):
+    return (
+        node.kind == cx.CursorKind.TYPEDEF_DECL
+        and not (node.get_definition() is None or not node == node.get_definition())
+        and filter_typedef(node)
+        and node.type.get_num_template_arguments() != -1
+        and not ignore_duplicate_typedef(node)
     )
 
 
-def typedef_generator(tu: clang.cindex.TranslationUnit):
-    return list(
-        filter(
-            lambda x: x.kind == clang.cindex.CursorKind.TYPEDEF_DECL,
-            tu.cursor.get_children(),
-        )
+def is_typedef_node(node):
+    return node.kind == cx.CursorKind.TYPEDEF_DECL
+
+
+def is_enum_node(node):
+    return node.kind == cx.CursorKind.ENUM_DECL and filter_enum(node)
+
+
+def is_class_node(node):
+    return (
+        node.kind == cx.CursorKind.CLASS_DECL or node.kind == cx.CursorKind.STRUCT_DECL
+    ) and not (node.get_definition() is None or not node == node.get_definition())
+
+
+def node_is_include(n: cx.Cursor):
+    return n.kind == cx.CursorKind.INCLUSION_DIRECTIVE
+
+
+def is_underlying(node, check_occt_base_path=True):
+    return check_occt_base_path and not node.location.file.name.startswith(
+        OCCT_SRC_PATH
     )
-
-
-def all_children_generator(tu: clang.cindex.TranslationUnit):
-    return list(tu.cursor.get_children())
-
-
-def enum_generator(tu: clang.cindex.TranslationUnit):
-    return list(
-        filter(
-            lambda x: x.kind == clang.cindex.CursorKind.ENUM_DECL and filter_enum(x),
-            tu.cursor.get_children(),
-        )
-    )
-
-
-def class_dict(tu: clang.cindex.TranslationUnit):
-    d = dict()
-    for x in tu.cursor.get_children():
-        if (
-            x.kind == clang.cindex.CursorKind.CLASS_DECL
-            or x.kind == clang.cindex.CursorKind.STRUCT_DECL
-        ) and not (x.get_definition() is None or not x == x.get_definition()):
-            if x.spelling not in d:
-                # original code didn't handle duplicate names, that seems bad?
-                d[x.spelling] = x
-    return d
-
-
-def node_is_include(n: clang.cindex.Cursor):
-    return n.kind == clang.cindex.CursorKind.INCLUSION_DIRECTIVE
-
-
-def includes_generator(tu: clang.cindex.TranslationUnit):
-    return [n for n in tu.cursor.get_children() if node_is_include(n)]
-
-
-def underlying_dict(items: list, check_occt_base_path: bool):
-    d = dict()
-    for x in items:
-        if check_occt_base_path and not x.location.file.name.startswith(OCCT_SRC_PATH):
-            continue
-        if x.underlying_typedef_type.spelling not in d:
-            # original code didn't handle duplicate names, that seems bad?
-            d[x.underlying_typedef_type.spelling] = x
-    return d
 
 
 class TuInfo:
-    """utility class for tracking information about a translation unit"""
+    """Utility class for tracking information about a translation unit"""
 
     def __init__(
-        self, custom_code: str, emsdk: bool = True, includes=EMCC_INCLUDE_PATH_ARGS
+        self,
+        path: str,
+        additional_cpp_code: list[(str, str)] = [],
+        additional_flags: list[str] = [],
+        includes: list[str] = EMCC_INCLUDE_PATH_ARGS,
+        parse_fn: Callable[
+            [str, list[(str, str)], list[str], list[str]], cx.TranslationUnit
+        ] = default_parse,
     ):
-        self.tu = parse(custom_code, emsdk, includes)
-        """the loaded clang translation unit"""
-        self.all_children = all_children_generator(self.tu)
-        self.typedefs = typedef_generator(self.tu)
-        self.includes = self.tu.get_includes()
-        self.enums = enum_generator(self.tu)
-        self.template_typedefs = template_typedef_generator(self.tu)
-        self.class_dict = class_dict(self.tu)
-        self.typedef_underlying_dict = underlying_dict(self.typedefs, True)
-        self.template_typedef_underlying_dict = underlying_dict(
-            self.template_typedefs, False
+        self.tu: cx.TranslationUnit = parse_fn(
+            path, additional_cpp_code, additional_flags, includes
         )
+        """The loaded clang translation unit"""
+
+        self.all_children: list[cx.Cursor] = []
+        """All children of the translation unit, in no particular order"""
+        self.typedefs: list[cx.Cursor] = []
+        """All typedef declarations in the translation unit"""
+        self.includes: list[cx.Cursor] = []
+        """All include directives in the translation unit"""
+        self.enums: list[cx.Cursor] = []
+        """All enum declarations in the translation unit"""
+        self.template_typedefs: list[cx.Cursor] = []
+        """All template typedef declarations in the translation unit"""
+        self.class_dict: dict[str, cx.Cursor] = {}
+        """All class declarations in the translation unit"""
+        self.typedef_underlying_dict: dict[str, cx.Cursor] = {}
+        """All underlying typedef declarations in the translation unit"""
+        self.template_typedef_underlying_dict: dict[str, cx.Cursor] = {}
+        """All underlying template typedef declarations in the translation unit"""
+
+        for n in self.tu.cursor.get_children():
+            self.all_children.append(n)
+            if is_template_typedef_node(n):
+                self.template_typedefs.append(n)
+            if is_underlying(n):
+                self.template_typedef_underlying_dict[
+                    n.underlying_typedef_type.spelling
+                ] = n
+            if is_typedef_node(n):
+                self.typedefs.append(n)
+            if node_is_include(n):
+                self.includes.append(n)
+            if is_enum_node(n):
+                self.enums.append(n)
+            if is_class_node(n):
+                self.class_dict[n.spelling] = n
+            if is_template_typedef_node(n):
+                if is_underlying(n, False):
+                    self.typedef_underlying_dict[n.underlying_typedef_type.spelling] = n

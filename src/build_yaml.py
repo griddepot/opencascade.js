@@ -12,7 +12,7 @@ from cerberus import Validator
 
 from common import _3RD_PARTY_INCLUDES, OCCT_INCLUDE_PATHS
 from compile_bindings import compileCustomCodeBindings
-from generate_bindings import generateCustomCodeBindings
+from generate_bindings import custom_code_bindgen
 
 parser = ArgumentParser()
 parser.add_argument(
@@ -34,7 +34,7 @@ try:
 except Exception:
     pass
 
-generateCustomCodeBindings(buildConfig["additionalCppCode"])
+custom_code_bindgen(buildConfig["additionalCppCode"])
 compileCustomCodeBindings(
     {
         "threading": os.environ["threading"],

@@ -6,12 +6,12 @@ import os
 from typing import Callable
 
 import clang.cindex
-from wasm_gen.common import SkipException
 
 from bindings import EmbindBindings, TypescriptBindings, shouldProcessClass
-from common import ALL_OCCT_INCLUDE_STATEMENTS
+from common import OCCT_INCLUDE_FILES
 from filters.pkgs import filter_packages
 from tu_info import TuInfo
+from wasm_gen.common import SkipException
 
 libraryBasePath = "/opencascade.js/build/bindings"
 buildDirectory = "/opencascade.js/build"
@@ -37,8 +37,8 @@ def mkdirp(name: str) -> None:
             raise
 
 
-def filterClasses(child, customBuild):
-    if customBuild:
+def filterClasses(child, is_custom_build):
+    if is_custom_build:
         return child.location.file.name == "myMain.h" and shouldProcessClass(
             child, occtBasePath
         )
@@ -49,8 +49,8 @@ def filterClasses(child, customBuild):
     )
 
 
-def filterTemplates(child, customBuild):
-    if customBuild:
+def filterTemplates(child, is_custom_build):
+    if is_custom_build:
         return (
             child.location.file.name == "myMain.h"
             and child.kind == clang.cindex.CursorKind.TYPEDEF_DECL
@@ -74,8 +74,8 @@ def filterTemplates(child, customBuild):
     )
 
 
-def filterEnums(child, customBuild):
-    if customBuild:
+def filterEnums(child, is_custom_build):
+    if is_custom_build:
         return child.location.file.name == "myMain.h"
     return (
         child.extent.start.file.name.startswith(occtBasePath)
@@ -83,50 +83,106 @@ def filterEnums(child, customBuild):
     ) and child.kind == clang.cindex.CursorKind.ENUM_DECL
 
 
-def processChildren(
-    tuInfo: TuInfo,
-    children: list,
+def process_source(
+    tu_info: TuInfo,
+    items: list[clang.cindex.Cursor],
     extension: str,
-    filterFunction: Callable[[any], bool],
-    processFunction: Callable[[any, any], str],
     preamble: str,
-    customBuild: bool,
+    filter_fn: Callable[[any], bool],
+    process_fn: Callable[[any, any], str],
+    is_custom_build: bool,
 ):
-    for child in children:
-        if not filterFunction(child, customBuild) or child.spelling == "" or child.spelling.startswith("(unnamed"):
+    for child in items:
+        if (
+            not filter_fn(child, is_custom_build)
+            or child.spelling == ""
+            or child.spelling.startswith("(unnamed")
+        ):
             continue
 
-        relOcFileName: str = child.extent.start.file.name.replace(occtBasePath, "")
-        mkdirp(buildDirectory + "/bindings/" + os.path.dirname(relOcFileName))
-        mkdirp(buildDirectory + "/bindings/" + relOcFileName)
-        filename = (
-            buildDirectory
-            + "/bindings/"
-            + relOcFileName
-            + "/"
-            + (child.spelling if not child.spelling == "" else child.type.spelling)
-            + extension
-        )
+        relative_file: str = child.extent.start.file.name.replace(occtBasePath, "")
+        mkdirp(f"{buildDirectory}/bindings/{os.path.dirname(relative_file)}")
+        mkdirp(f"{buildDirectory}/bindings/{relative_file}")
+        filename = f"{buildDirectory}/bindings/{relative_file}/{child.spelling if child.spelling != '' else child.type.spelling}{extension}"
 
         if os.path.exists(filename):
-            print("file " + child.spelling + ".cpp already exists, skipping")
+            print(f"File {child.spelling}.cpp already exists, skipping")
             continue
-        print("Processing " + child.spelling + " (" + relOcFileName + ")")
-        
+        print(f"Processing {child.spelling} ({relative_file})")
+
         try:
-            if extension == ".cpp":
-                file_name = child.extent.start.file.name
-                includes = preambles_cache.get(file_name)
-                if includes is None:
-                    includes = "" # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
-                custom_preamble = includes + referenceTypeTemplateDefs
-            else:
-                custom_preamble = ""
-            output = processFunction(tuInfo, custom_preamble, child)
-            with open(filename, "w") as bindingsFile:
-                bindingsFile.write(output)
+            output = process_fn(tu_info, preamble, child)
+            with open(filename, "w") as f:
+                f.write(output)
         except SkipException as e:
             print(str(e))
+
+
+def process_sources(custom_code: str = ""):
+    is_custom_build = custom_code != ""
+    for header in OCCT_INCLUDE_FILES:
+        tu_info = TuInfo(header)
+        cached_preamble = preambles_cache.get(header)
+        # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
+        preamble = (
+            cached_preamble + referenceTypeTemplateDefs + custom_code
+            if cached_preamble is not None
+            else custom_code
+        )
+        process_source(
+            tu_info,
+            tu_info.all_children,
+            ".cpp",
+            preamble,
+            filterClasses,
+            embindGenerationFuncClasses,
+            is_custom_build,
+        )
+        process_source(
+            tu_info,
+            tu_info.all_children,
+            ".d.ts.json",
+            preamble,
+            filterClasses,
+            typescriptGenerationFuncClasses,
+            is_custom_build,
+        )
+        process_source(
+            tu_info,
+            tu_info.template_typedefs,
+            ".cpp",
+            preamble,
+            filterTemplates,
+            embindGenerationFuncTemplates,
+            is_custom_build,
+        )
+        process_source(
+            tu_info,
+            tu_info.template_typedefs,
+            ".d.ts.json",
+            preamble,
+            filterTemplates,
+            typescriptGenerationFuncTemplates,
+            is_custom_build,
+        )
+        process_source(
+            tu_info,
+            tu_info.enums,
+            ".cpp",
+            preamble,
+            filterEnums,
+            embindGenerationFuncEnums,
+            is_custom_build,
+        )
+        process_source(
+            tu_info,
+            tu_info.enums,
+            ".d.ts.json",
+            preamble,
+            filterEnums,
+            typescriptGenerationFuncEnums,
+            is_custom_build,
+        )
 
 
 def split(a: list, n):
@@ -191,44 +247,6 @@ def embindGenerationFuncEnums(tuInfo: TuInfo, preamble, child) -> str:
     output = embindings.processEnum(child)
 
     return preamble + output
-
-
-def process(
-    tuInfo: TuInfo,
-    extension,
-    embindGenerationFuncClasses,
-    embindGenerationFuncTemplates,
-    embindGenerationFuncEnums,
-    preamble,
-    customBuild,
-):
-    processChildren(
-        tuInfo,
-        tuInfo.all_children,
-        extension,
-        filterClasses,
-        embindGenerationFuncClasses,
-        preamble,
-        customBuild,
-    )
-    processChildren(
-        tuInfo,
-        tuInfo.template_typedefs,
-        extension,
-        filterTemplates,
-        embindGenerationFuncTemplates,
-        preamble,
-        customBuild,
-    )
-    processChildren(
-        tuInfo,
-        tuInfo.enums,
-        extension,
-        filterEnums,
-        embindGenerationFuncEnums,
-        preamble,
-        customBuild,
-    )
 
 
 def typescriptGenerationFuncClasses(tuInfo: TuInfo, preamble, child) -> str:
@@ -297,35 +315,13 @@ referenceTypeTemplateDefs = (
 )
 
 
-def generateCustomCodeBindings(customCode):
+def custom_code_bindgen(custom_code):
     try:
         os.makedirs(libraryBasePath)
     except Exception:
         pass
 
-    embindPreamble = (
-        ALL_OCCT_INCLUDE_STATEMENTS + "\n" + referenceTypeTemplateDefs + "\n" + customCode
-    )
-
-    tuInfo = TuInfo(customCode)
-    process(
-        tuInfo,
-        ".cpp",
-        embindGenerationFuncClasses,
-        embindGenerationFuncTemplates,
-        embindGenerationFuncEnums,
-        embindPreamble,
-        True,
-    )
-    process(
-        tuInfo,
-        ".d.ts.json",
-        typescriptGenerationFuncClasses,
-        typescriptGenerationFuncTemplates,
-        typescriptGenerationFuncEnums,
-        "",
-        True,
-    )
+    process_sources(custom_code)
 
 
 if __name__ == "__main__":
@@ -334,25 +330,4 @@ if __name__ == "__main__":
     except Exception:
         pass
 
-    tuInfo = TuInfo("")
-
-    embindPreamble = ALL_OCCT_INCLUDE_STATEMENTS + "\n" + referenceTypeTemplateDefs
-    process(
-        tuInfo,
-        ".cpp",
-        embindGenerationFuncClasses,
-        embindGenerationFuncTemplates,
-        embindGenerationFuncEnums,
-        embindPreamble,
-        False,
-    )
-
-    process(
-        tuInfo,
-        ".d.ts.json",
-        typescriptGenerationFuncClasses,
-        typescriptGenerationFuncTemplates,
-        typescriptGenerationFuncEnums,
-        "",
-        False,
-    )
+    process_sources()

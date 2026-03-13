@@ -5,13 +5,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import clang.cindex as cx
 from tqdm import tqdm
 
-from common import OCCT_SRC_PATH, OCCT_INCLUDE_PATH_ARGS
+from common import OCCT_INCLUDE_FILES, OCCT_INCLUDE_PATH_ARGS
 from filters.includes import filter_include
 from filters.pkgs import filter_packages
-from tu_info import TuInfo
 
 buildDirectory = "/opencascade.js/build"
-sourcesDirectory = "/opencascade.js/build/sources"
 
 SOURCE_EXTENSIONS = [".cxx", ".cpp", ".c"]
 
@@ -69,19 +67,11 @@ def generate_preamble(file_path: str) -> tuple[str, str]:
 
 
 def generate_preambles():
-    tuInfo = TuInfo("", False, OCCT_INCLUDE_PATH_ARGS)
 
     source_files = set()
-    for child in tuInfo.all_children:
-        if (
-            child.extent.start.file is not None
-            and child.extent.start.file.name.startswith(OCCT_SRC_PATH)
-            and child.location.file is not None
-            and filter_packages(
-                os.path.basename(os.path.dirname(child.location.file.name))
-            )
-        ):
-            source_files.add(child.extent.start.file.name)
+    for file in OCCT_INCLUDE_FILES:
+        if filter_packages(os.path.basename(os.path.dirname(file))):
+            source_files.add(file)
 
     sorted_files = sorted(source_files)
     preambles = {}

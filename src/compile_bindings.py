@@ -2,19 +2,20 @@ import multiprocessing
 import os
 import subprocess
 import time
-from argparse import ArgumentParser
 from functools import partial
 
 from tqdm import tqdm
 
 from common import (
-    OCCT_INCLUDE_PATHS_WITH_3RD_PARTY,
+    OCCT_INCLUDE_PATH_ARGS_WITH_3RD_PARTY,
 )
 
 libraryBasePath = "/opencascade.js/build/bindings"
 
+BUILD_MULTITHREADED = os.environ["BUILD_MULTITHREADED"] == "1"
 
-def buildOneFile(args, item):
+
+def compile_binding(item):
     if os.path.exists(item + ".o"):
         return ("skipped", item)
 
@@ -28,20 +29,16 @@ def buildOneFile(args, item):
         "-DOCCT_NO_PLUGINS",
         "-frtti",
         "-DHAVE_RAPIDJSON",
-        "-Os" if args["release"] == "true" else "-O0",
-        "-pthread" if args["threading"] == "multi-threaded" else "",
-        *OCCT_INCLUDE_PATHS_WITH_3RD_PARTY,
+        "-Os",
+        "-pthread" if BUILD_MULTITHREADED else "",
+        *OCCT_INCLUDE_PATH_ARGS_WITH_3RD_PARTY,
         "-c",
         item,
+        "-o",
+        f"{item}.o",
     ]
     try:
-        subprocess.check_call(
-            [
-                *command,
-                "-o",
-                item + ".o",
-            ]
-        )
+        subprocess.check_call(command)
         return ("ok", item)
     except subprocess.CalledProcessError:
         return ("failed", item)
@@ -64,7 +61,7 @@ def compileCustomCodeBindings(args):
         for status, path in tqdm(
             p.imap_unordered(
                 partial(
-                    buildOneFile,
+                    compile_binding,
                     {
                         "threading": args.threading,
                     },
@@ -88,45 +85,24 @@ def compileCustomCodeBindings(args):
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument(
-        dest="threading",
-        choices=["single-threaded", "multi-threaded"],
-        help="Build in single vs. multi-threaded mode",
-    )
-    parser.add_argument(
-        dest="release",
-        choices=["true", "false"],
-        help='Whether to build for release. A value of "false" will build without optimizations (-O0).',
-    )
-    args = parser.parse_args()
-
-    filesToBuild = []
-    for dirpath, dirnames, filenames in os.walk(libraryBasePath):
-        filesToBuild.extend(
-            map(
-                lambda x: dirpath + "/" + x,
-                filter(lambda x: x.endswith(".cpp"), filenames),
-            )
+    build_targets = []
+    for dirpath, _, filenames in os.walk(libraryBasePath):
+        build_targets.extend(
+            [f"{dirpath}/{file}" for file in filenames if file.endswith(".cpp")]
         )
 
-    total = len(filesToBuild)
+    build_targets.sort()
+    total = len(build_targets)
     print(f"Compiling {total} binding files...")
 
     ok = failed = skipped = 0
     start = time.time()
 
-    with multiprocessing.Pool(processes=int(multiprocessing.cpu_count() / 1)) as p:
+    with multiprocessing.Pool(processes=int(multiprocessing.cpu_count())) as p:
         for status, path in tqdm(
             p.imap_unordered(
-                partial(
-                    buildOneFile,
-                    {
-                        "threading": args.threading,
-                        "release": args.release,
-                    },
-                ),
-                sorted(filesToBuild),
+                compile_binding,
+                build_targets,
             ),
             total=total,
             desc="Compiling bindings",

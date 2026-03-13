@@ -34,6 +34,7 @@ from filters.source_files import filter_source_file
 # "TDF
 
 OCJS_SRC_PATH = "/opencascade.js/build/sources/"
+OCJS_PCH_PATH = "/opencascade.js/build/pch/"
 OCCT_SRC_PATH = "/occt/src/"
 
 
@@ -66,22 +67,54 @@ def build_file(file: str):
         *OCCT_INCLUDE_PATH_ARGS_WITH_3RD_PARTY,
         "-c",
         file,
+        "-o",
+        object_path,
     ]
 
     try:
-        subprocess.check_call(
-            [
-                *command,
-                "-o",
-                object_path,
-            ]
-        )
+        subprocess.check_call(command)
         return ("ok", relative_file_path)
     except subprocess.CalledProcessError:
         return ("skipped", relative_file_path)
 
 
-allModules = {}
+# build_pch.build_pch("/occt/src/AIS/AIS_InteractiveContext.hxx")
+# tu = index.parse("/occt/src/AIS/AIS_InteractiveContext.hxx", ["-x", "c++", "-stdlib=libc++", "-Xclang", "-include-pch=/opencascade.js/build/pch/AIS/AIS_InteractiveContext.hxx.pch", *OCCT_INCLUDE_PATH_ARGS], options=cx.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
+def build_pch(file: str):
+    relative_file_path = file.replace(OCCT_SRC_PATH, "")
+    os.makedirs(f"{OCJS_PCH_PATH}/{os.path.dirname(relative_file_path)}", exist_ok=True)
+
+    pch_path = f"{OCJS_PCH_PATH}/{relative_file_path}.pch"
+
+    if os.path.exists(pch_path):
+        return ("skipped", relative_file_path)
+
+    command = [
+        "emcc",
+        "-xc++-header",
+        "-flto",
+        "-fexceptions",
+        "-sDISABLE_EXCEPTION_CATCHING=0",
+        "-DIGNORE_NO_ATOMICS=1",
+        "-DOCCT_NO_PLUGINS",
+        "-frtti",
+        "-DHAVE_RAPIDJSON",
+        "-Os",
+        "-pthread" if BUILD_MULTITHREADED else "",
+        *OCCT_INCLUDE_PATH_ARGS_WITH_3RD_PARTY,
+        file,
+        "-o",
+        pch_path,
+    ]
+
+    try:
+        subprocess.check_call(command)
+        return ("ok", relative_file_path)
+    except subprocess.CalledProcessError:
+        return ("failed", relative_file_path)
+
+
+allModules: dict[str, str] = {}
 for dirpath, dirnames, filenames in os.walk(OCCT_SRC_PATH):
     if not any(x for x in filenames if x == "PACKAGES"):
         continue
