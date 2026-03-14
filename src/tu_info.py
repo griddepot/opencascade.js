@@ -1,3 +1,5 @@
+import os
+
 import clang.cindex as cx
 from typing import Callable
 from common import (
@@ -77,6 +79,12 @@ class TuInfo:
             [str, list[(str, str)], list[str], list[str]], cx.TranslationUnit
         ] = default_parse,
     ):
+        self.path: str = path
+        """The path to the source file"""
+        
+        self.symbol_name = os.path.basename(self.path)
+        """The name of the actual source path extracted from the path"""
+        
         self.tu: cx.TranslationUnit = parse_fn(
             path, additional_cpp_code, additional_flags, includes
         )

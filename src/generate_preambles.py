@@ -69,9 +69,12 @@ def generate_preamble(file_path: str) -> tuple[str, str]:
 def generate_preambles():
 
     source_files = set()
-    for file in OCCT_INCLUDE_FILES:
-        if filter_packages(os.path.basename(os.path.dirname(file))):
-            source_files.add(file)
+    for header in OCCT_INCLUDE_FILES:
+        if filter_packages(os.path.basename(os.path.dirname(header))):
+            source_variant = header.replace(".hxx", ".cxx")
+            target = source_variant if os.path.isfile(source_variant) else header
+            
+            source_files.add(target)
 
     sorted_files = sorted(source_files)
     preambles = {}

@@ -3,7 +3,6 @@ from typing import List, Tuple
 
 import clang.cindex
 
-from filters.classes import filter_class
 from filters.method_or_property import filter_method_or_property
 from wasm_gen.common import (
   SkipException,
@@ -14,7 +13,7 @@ from tu_info import TuInfo
 
 
 def merge(sep: str, *strings: List[str]):
-  return sep.join(strings)
+  return sep.join(*strings)
 
 def pick(condition: bool, strTrue: str, strFalse: str):
   return strTrue if condition else strFalse
@@ -24,32 +23,6 @@ def pickWrap(condition: bool, wrapStart: Tuple[str, str], center: str, wrapEnd: 
 
 def indent(level: int):
   return " " * level * 2
-
-def shouldProcessClass(child: clang.cindex.Cursor, occtBasePath: str):
-  if child.get_definition() is None or not child == child.get_definition():
-    return False
-
-  if not filter_class(child):
-    return False
-
-  if (
-    child.kind == clang.cindex.CursorKind.CLASS_DECL or
-    child.kind == clang.cindex.CursorKind.STRUCT_DECL
-  ) and not child.type.get_num_template_arguments() == -1:
-    return False
-
-  if (
-    child.kind == clang.cindex.CursorKind.CLASS_DECL or
-    child.kind == clang.cindex.CursorKind.STRUCT_DECL
-  ):
-    baseSpec = list(filter(lambda x: x.kind == clang.cindex.CursorKind.CXX_BASE_SPECIFIER and x.access_specifier == clang.cindex.AccessSpecifier.PUBLIC, child.get_children()))
-    if len(baseSpec) > 1:
-      print("cannot handle multiple base classes (" + child.spelling + ")")
-      return False
-    
-    return True
-
-  return False
 
 builtInTypes = [ # according to https://en.cppreference.com/w/cpp/language/types
   # Integer types
