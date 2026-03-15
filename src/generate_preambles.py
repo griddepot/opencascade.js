@@ -5,29 +5,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import clang.cindex as cx
 from tqdm import tqdm
 
-from common import OCCT_INCLUDE_FILES, OCCT_INCLUDE_PATH_ARGS
+from common import OCCT_INCLUDE_FILES, OCCT_INCLUDE_PATH_ARGS, resolve_header_source
 from filters.includes import filter_include
 from filters.pkgs import filter_packages
 
 buildDirectory = "/opencascade.js/build"
-
-SOURCE_EXTENSIONS = [".cxx", ".cpp", ".c"]
 
 
 def get_include_name(file_inclusion: cx.FileInclusion):
     return os.path.basename(file_inclusion.include.name)
 
 
-def get_one_preamble(path: str):
+def generate_preamble(file_path: str) -> tuple[str, str]:
     """Get the preamble from an OCCT source/header file"""
+    
+    source_path = resolve_header_source(file_path)
     index = cx.Index.create()
     tu = index.parse(
-        path,
+        source_path,
         ["-x", "c++", "-stdlib=libc++", *OCCT_INCLUDE_PATH_ARGS],
         options=cx.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
     )
 
-    default_include = os.path.basename(path).replace(".cxx", ".hxx")
+    default_include = os.path.basename(source_path).replace(".cxx", ".hxx")
     valid_includes = list(
         dict.fromkeys(
             [
@@ -43,44 +43,23 @@ def get_one_preamble(path: str):
 
     index = None
     tu = None
-    return os.linesep.join(valid_includes) + os.linesep
-
-
-def get_compiled_source_path(header_path: str) -> str | None:
-    """Check if a compiled source file exists for the given header path."""
-    base, _ = os.path.splitext(header_path)
-    for ext in SOURCE_EXTENSIONS:
-        candidate = base + ext
-        if os.path.exists(candidate):
-            return candidate
-    return None
-
-
-def generate_preamble(file_path: str) -> tuple[str, str]:
-    source_path = get_compiled_source_path(file_path)
-    includes = (
-        get_one_preamble(source_path)
-        if source_path is not None
-        else get_one_preamble(file_path)
-    )
-    return file_path, includes
+    return (source_path, os.linesep.join(valid_includes) + os.linesep)
 
 
 def generate_preambles():
 
-    source_files = set()
-    for header in OCCT_INCLUDE_FILES:
-        if filter_packages(os.path.basename(os.path.dirname(header))):
-            source_variant = header.replace(".hxx", ".cxx")
-            target = source_variant if os.path.isfile(source_variant) else header
-            
-            source_files.add(target)
+    source_files = sorted(
+        {
+            header
+            for header in OCCT_INCLUDE_FILES
+            if filter_packages(os.path.basename(os.path.dirname(header)))
+        }
+    )
 
-    sorted_files = sorted(source_files)
-    preambles = {}
+    preambles: dict[str, str] = {}
 
     with ThreadPoolExecutor() as executor:
-        futures = {executor.submit(generate_preamble, fp): fp for fp in sorted_files}
+        futures = {executor.submit(generate_preamble, fp): fp for fp in source_files}
         for future in tqdm(
             as_completed(futures), total=len(futures), desc="Generating preambles"
         ):

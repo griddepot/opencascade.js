@@ -114,7 +114,7 @@ def build_pch(file: str):
         return ("failed", relative_file_path)
 
 
-allModules: dict[str, str] = {}
+allModules: dict[str, list[str]] = {}
 for dirpath, dirnames, filenames in os.walk(OCCT_SRC_PATH):
     if not any(x for x in filenames if x == "PACKAGES"):
         continue

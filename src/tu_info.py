@@ -13,7 +13,7 @@ from wasm_gen.common import ignore_duplicate_typedef
 
 def default_parse(
     path: str,
-    additional_cpp_code: list[(str, str)] = [],
+    additional_cpp_code: list[tuple[str, str]] = [],
     additional_flags: list[str] = [],
     includes: list[str] = EMCC_INCLUDE_PATH_ARGS,
 ):
@@ -21,7 +21,7 @@ def default_parse(
     translation_unit = index.parse(
         path,
         ["-x", "c++", "-stdlib=libc++"] + additional_flags + includes,
-        [[name, code] for name, name, code in additional_cpp_code],
+        [[name, code] for name, code in additional_cpp_code],
     )
 
     if len(translation_unit.diagnostics) > 0:
@@ -72,11 +72,11 @@ class TuInfo:
     def __init__(
         self,
         path: str,
-        additional_cpp_code: list[(str, str)] = [],
+        additional_cpp_code: list[tuple[str, str]] = [],
         additional_flags: list[str] = [],
         includes: list[str] = EMCC_INCLUDE_PATH_ARGS,
         parse_fn: Callable[
-            [str, list[(str, str)], list[str], list[str]], cx.TranslationUnit
+            [str, list[tuple[str, str]], list[str], list[str]], cx.TranslationUnit
         ] = default_parse,
     ):
         self.path: str = path

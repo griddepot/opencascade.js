@@ -15,7 +15,7 @@ import clang.cindex as cx
 from tqdm import tqdm
 
 from bindings import EmbindBindings, TypescriptBindings
-from common import OCCT_INCLUDE_FILES
+from common import OCCT_INCLUDE_FILES, resolve_header_source, OCCT_SRC_PATH
 from filters.pkgs import filter_packages
 from tu_info import TuInfo
 from wasm_gen.common import SkipException
@@ -33,7 +33,6 @@ def load_preambles() -> dict[str, str]:
 
 
 preambles_cache = load_preambles()
-occtBasePath = "/occt/src/"
 
 
 def mkdirp(name: str) -> None:
@@ -54,7 +53,7 @@ def should_process_class(child, is_custom_build):
 
         if (
             child.kind == cx.CursorKind.CLASS_DECL
-            or child.kind == cx.CursorKind.STRUCT_DECL
+            or child.kind == cx.CursorKind.STRUCT_DECL  # ty:ignore[unresolved-attribute]
         ) and not child.type.get_num_template_arguments() == -1:
             return False
 
@@ -115,133 +114,9 @@ def should_process_enum(child, is_custom_build):
     if is_custom_build:
         return child.location.file.name == "myMain.h"
     return (
-        child.extent.start.file.name.startswith(occtBasePath)
+        child.extent.start.file.name.startswith(OCCT_SRC_PATH)
         and filter_packages(os.path.basename(os.path.dirname(child.location.file.name)))
     ) and child.kind == cx.CursorKind.ENUM_DECL  # ty:ignore[unresolved-attribute]
-
-
-def process_children(
-    tu_info: TuInfo,
-    items: list[cx.Cursor],
-    filter_fn: Callable[[Any, bool], bool],
-    cpp_process_fn: Callable[[TuInfo, str, Any], str],
-    dts_process_fn: Callable[[TuInfo, str, Any], str],
-    custom_code: str,
-):
-    is_custom_build = custom_code.strip() != ""
-
-    process_count = 0
-    for child in items:
-        if (
-            not filter_fn(child, is_custom_build)
-            or child.spelling == ""
-            or child.spelling.startswith("(unnamed")
-        ):
-            continue
-
-        child_path = child.extent.start.file.name
-        child_source_variant = child_path.replace(".hxx", ".cxx")
-        preamble_key = (
-            child_source_variant if os.path.isfile(child_source_variant) else child_path
-        )
-        # preamble_key = os.path.basename(preamble_target)
-
-        relative_file: str = child_path.replace(occtBasePath, "")
-
-        base_filename = f"{buildDirectory}/bindings/{relative_file}/{child.spelling if child.spelling != '' else child.type.spelling}"
-        dts_filename = f"{base_filename}.d.ts"
-        cpp_filename = f"{base_filename}.cpp"
-
-        if os.path.exists(cpp_filename):
-            continue
-
-        mkdirp(f"{buildDirectory}/bindings/{os.path.dirname(relative_file)}")
-        mkdirp(f"{buildDirectory}/bindings/{relative_file}")
-
-        cached_preamble = preambles_cache.get(preamble_key)
-        # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
-        preamble = (
-            cached_preamble + referenceTypeTemplateDefs + custom_code
-            if cached_preamble is not None
-            else custom_code
-        )
-        try:
-            cpp_output = cpp_process_fn(tu_info, preamble, child)
-            dts_output = dts_process_fn(tu_info, preamble, child)
-            with open(cpp_filename, "w") as f:
-                f.write(cpp_output)
-            with open(dts_filename, "w") as f:
-                f.write(dts_output)
-            process_count += 1
-        except SkipException as e:
-            print(str(e))
-
-    return process_count
-
-
-def process_include(custom_code: str, completed_includes: UltraDict, include: str):
-    if include in completed_includes:
-        return ("skipped", 0)
-
-    source_variant = include.replace(".hxx", ".cxx")
-    target = source_variant if os.path.isfile(source_variant) else include
-    tu_info = TuInfo(target)
-
-    all_children_count = process_children(
-        tu_info,
-        tu_info.all_children,
-        should_process_class,
-        embindGenerationFuncClasses,
-        typescriptGenerationFuncClasses,
-        custom_code,
-    )
-    typedefs_count = process_children(
-        tu_info,
-        tu_info.template_typedefs,
-        should_process_template,
-        embindGenerationFuncTemplates,
-        typescriptGenerationFuncTemplates,
-        custom_code,
-    )
-    enums_count = process_children(
-        tu_info,
-        tu_info.enums,
-        should_process_enum,
-        embindGenerationFuncEnums,
-        typescriptGenerationFuncEnums,
-        custom_code,
-    )
-    completed_includes[include] = True
-    return ("ok", all_children_count + typedefs_count + enums_count)
-
-
-def process_sources(custom_code: str = ""):
-    completed_includes = UltraDict()
-    ok = 0
-    start = time.time()
-    targets = ["/occt/src/AIS/AIS_InteractiveContext.cxx"]
-    print(targets)
-    total = len(targets)
-
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
-        for status, count in tqdm(
-            p.imap_unordered(
-                partial(process_include, custom_code, completed_includes),
-                sorted(targets),
-            ),
-            total=total,
-            desc="Generating bindings",
-            unit="file",
-        ):
-            if status == "ok":
-                ok += count
-            if status == "skipped":
-                print("uhhh")
-
-    elapsed = time.time() - start
-    print(
-        f"\nBinding generation done: {ok} generated, (total: {len(targets)}) in {elapsed / 60:.1f}min"
-    )
 
 
 def process_template(child: cx.Cursor):
@@ -276,30 +151,30 @@ def process_template(child: cx.Cursor):
     return [template_class, template_args]
 
 
-def embindGenerationFuncClasses(tuInfo: TuInfo, preamble, child) -> str:
-    embindings = EmbindBindings(tuInfo)
+def embind_generate_class(tu_info: TuInfo, preamble, child) -> str:
+    embindings = EmbindBindings(tu_info)
     output = embindings.processClass(child)
 
     return preamble + output
 
 
-def embindGenerationFuncTemplates(tuInfo: TuInfo, preamble, child) -> str:
-    [templateClass, templateArgs] = process_template(child)
-    embindings = EmbindBindings(tuInfo)
-    output = embindings.processClass(templateClass, child, templateArgs)
+def embind_generate_template(tu_info: TuInfo, preamble, child) -> str:
+    [template_class, template_args] = process_template(child)
+    embindings = EmbindBindings(tu_info)
+    output = embindings.processClass(template_class, child, template_args)
 
     return preamble + output
 
 
-def embindGenerationFuncEnums(tuInfo: TuInfo, preamble, child) -> str:
-    embindings = EmbindBindings(tuInfo)
+def embind_generate_enum(tu_info: TuInfo, preamble, child) -> str:
+    embindings = EmbindBindings(tu_info)
     output = embindings.processEnum(child)
 
     return preamble + output
 
 
-def typescriptGenerationFuncClasses(tuInfo: TuInfo, preamble, child) -> str:
-    typescript = TypescriptBindings(tuInfo)
+def ts_generate_class(tu_info: TuInfo, preamble, child) -> str:
+    typescript = TypescriptBindings(tu_info)
     output = typescript.processClass(child)
 
     return json.dumps(
@@ -311,9 +186,9 @@ def typescriptGenerationFuncClasses(tuInfo: TuInfo, preamble, child) -> str:
     )
 
 
-def typescriptGenerationFuncTemplates(tuInfo: TuInfo, preamble, child) -> str:
+def ts_generate_template(tu_info: TuInfo, preamble, child) -> str:
     [templateClass, templateArgs] = process_template(child)
-    typescript = TypescriptBindings(tuInfo)
+    typescript = TypescriptBindings(tu_info)
     output = typescript.processClass(templateClass, child, templateArgs)
 
     return json.dumps(
@@ -325,8 +200,8 @@ def typescriptGenerationFuncTemplates(tuInfo: TuInfo, preamble, child) -> str:
     )
 
 
-def typescriptGenerationFuncEnums(tuInfo: TuInfo, preamble, child) -> str:
-    typescript = TypescriptBindings(tuInfo)
+def ts_generate_enum(tu_info: TuInfo, preamble, child) -> str:
+    typescript = TypescriptBindings(tu_info)
     output = typescript.processEnum(child)
 
     return json.dumps(
@@ -338,30 +213,156 @@ def typescriptGenerationFuncEnums(tuInfo: TuInfo, preamble, child) -> str:
     )
 
 
-referenceTypeTemplateDefs = (
-    "\n"
-    + "#include <emscripten/bind.h>\n"
-    + "using namespace emscripten;\n"
-    + "#include <functional>\n"
-    + "\n"
-    + "template<typename T>\n"
-    + "T getReferenceValue(const emscripten::val& v) {\n"
-    + '  if(!(v.typeOf().as<std::string>() == "object")) {\n'
-    + "    return v.as<T>(allow_raw_pointers());\n"
-    + '  } else if(v.typeOf().as<std::string>() == "object" && v.hasOwnProperty("current")) {\n'
-    + '    return v["current"].as<T>(allow_raw_pointers());\n'
-    + "  }\n"
-    + '  throw("unsupported type");\n'
-    + "}\n"
-    + "\n"
-    + "template<typename T>\n"
-    + "void updateReferenceValue(emscripten::val& v, T& val) {\n"
-    + '  if(v.typeOf().as<std::string>() == "object" && v.hasOwnProperty("current")) {\n'
-    + '    v.set("current", val);\n'
-    + "  }\n"
-    + "}\n"
-    + "\n"
-)
+def process_children(
+    tu_info: TuInfo,
+    items: list[cx.Cursor],
+    filter_fn: Callable[[Any, bool], bool],
+    cpp_process_fn: Callable[[TuInfo, str, Any], str],
+    dts_process_fn: Callable[[TuInfo, str, Any], str],
+    custom_code: str,
+    processed_cache: UltraDict,
+):
+    is_custom_build = custom_code.strip() != ""
+
+    process_count = 0
+    for child in items:
+        if (
+            not filter_fn(child, is_custom_build)
+            or child.spelling == ""
+            or child.spelling.startswith("(unnamed")
+        ):
+            continue
+
+        child_path = child.extent.start.file.name
+        preamble_key = resolve_header_source(child_path)
+        if preamble_key in processed_cache:
+            continue
+
+        relative_file: str = child_path.replace(OCCT_SRC_PATH, "")
+
+        base_filename = f"{buildDirectory}/bindings/{relative_file}/{child.spelling if child.spelling != '' else child.type.spelling}"
+        dts_filename = f"{base_filename}.d.ts"
+        cpp_filename = f"{base_filename}.cpp"
+
+        if os.path.exists(cpp_filename):
+            continue
+
+        mkdirp(f"{buildDirectory}/bindings/{os.path.dirname(relative_file)}")
+        mkdirp(f"{buildDirectory}/bindings/{relative_file}")
+
+        cached_preamble = preambles_cache.get(preamble_key)
+
+        preamble = (
+            cached_preamble + referenceTypeTemplateDefs + custom_code
+            if cached_preamble is not None
+            else custom_code  # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
+        )
+        try:
+            cpp_output = cpp_process_fn(tu_info, preamble, child)
+            dts_output = dts_process_fn(tu_info, preamble, child)
+            with open(cpp_filename, "w") as f:
+                f.write(cpp_output)
+            with open(dts_filename, "w") as f:
+                f.write(dts_output)
+            process_count += 1
+            processed_cache[preamble_key] = True
+        except SkipException as e:
+            print(str(e))
+
+    return process_count
+
+
+def process_include(custom_code: str, processed_cache: UltraDict, include: str):
+    target = resolve_header_source(include)
+
+    if target in processed_cache:
+        return ("skipped", 0)
+
+    tu_info = TuInfo(target)
+
+    all_children_count = process_children(
+        tu_info,
+        tu_info.all_children,
+        should_process_class,
+        embind_generate_class,
+        ts_generate_class,
+        custom_code,
+        processed_cache,
+    )
+    typedefs_count = process_children(
+        tu_info,
+        tu_info.template_typedefs,
+        should_process_template,
+        embind_generate_template,
+        ts_generate_template,
+        custom_code,
+        processed_cache,
+    )
+    enums_count = process_children(
+        tu_info,
+        tu_info.enums,
+        should_process_enum,
+        embind_generate_enum,
+        ts_generate_enum,
+        custom_code,
+        processed_cache,
+    )
+    processed_cache[target] = True
+    return ("ok", all_children_count + typedefs_count + enums_count)
+
+
+def process_sources(custom_code: str = ""):
+    completed_includes = UltraDict()
+    ok = 0
+    start = time.time()
+    targets = ["/occt/src/AIS/AIS_InteractiveContext.cxx"]
+    print(targets)
+    total = len(targets)
+
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
+        for status, count in tqdm(
+            p.imap_unordered(
+                partial(process_include, custom_code, completed_includes),
+                sorted(targets),
+            ),
+            total=total,
+            desc="Generating bindings",
+            unit="file",
+        ):
+            if status == "ok":
+                ok += count
+            if status == "skipped":
+                print("uhhh")
+
+    elapsed = time.time() - start
+    print(
+        f"\nBinding generation done: {ok} generated, (total: {len(targets)}) in {elapsed / 60:.1f}min"
+    )
+
+
+referenceTypeTemplateDefs = """
+#include <emscripten/bind.h>
+using namespace emscripten;
+#include <functional>
+
+template<typename T>
+T getReferenceValue(const emscripten::val& v) {
+  if(!(v.typeOf().as<std::string>() == "object")) {
+    return v.as<T>(allow_raw_pointers());
+  } else if(v.typeOf().as<std::string>() == "object" && v.hasOwnProperty("current")) {
+    return v["current"].as<T>(allow_raw_pointers());
+  }
+  throw("unsupported type");
+}
+
+template<typename T>
+void updateReferenceValue(emscripten::val& v, T& val) {
+  if(v.typeOf().as<std::string>() == "object" && v.hasOwnProperty("current")) {
+    v.set("current", val);
+  }
+}
+
+"""
 
 
 def custom_code_bindgen(custom_code):
