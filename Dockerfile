@@ -59,7 +59,6 @@ FROM stage-uv AS stage-preambles
 
 COPY src/filters /opencascade.js/src/filters/
 COPY src/common.py /opencascade.js/src/common.py
-COPY src/tu_info.py /opencascade.js/src/tu_info.py
 COPY src/wasm_gen/ /opencascade.js/src/wasm_gen
 COPY src/generate_preambles.py /opencascade.js/src/generate_preambles.py
 
@@ -72,6 +71,7 @@ RUN uv run generate_preambles.py
 FROM stage-preambles AS stage-bindgen
 
 COPY --from=stage-preambles /opencascade.js/build/preambles.json /opencascade.js/build/preambles.json
+COPY src/tu_info.py /opencascade.js/src/tu_info.py
 COPY src/bindings.py /opencascade.js/src/bindings.py
 COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py
 

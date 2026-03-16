@@ -1,21 +1,18 @@
 #!/usr/bin/python3
-
 import errno
-from functools import partial
 import json
-import multiprocessing
 import os
 import time
-from typing import Callable, Any
-from filters.classes import filter_class
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable
 
-
-from UltraDict import UltraDict
 import clang.cindex as cx
 from tqdm import tqdm
 
 from bindings import EmbindBindings, TypescriptBindings
-from common import OCCT_INCLUDE_FILES, resolve_header_source, OCCT_SRC_PATH
+from common import OCCT_SRC_PATH
+from filters.classes import filter_class
+from filters.includes import filter_include
 from filters.pkgs import filter_packages
 from tu_info import TuInfo
 from wasm_gen.common import SkipException
@@ -44,11 +41,12 @@ def mkdirp(name: str) -> None:
 
 
 def should_process_class(child, is_custom_build):
-    def should_process(child: cx.Cursor, occtBasePath: str):
+    def should_process(child: cx.Cursor):
         if child.get_definition() is None or not child == child.get_definition():
             return False
 
         if not filter_class(child, is_custom_build):
+            print("bad class")
             return False
 
         if (
@@ -75,13 +73,11 @@ def should_process_class(child, is_custom_build):
         return False
 
     if is_custom_build:
-        return child.location.file.name == "myMain.h" and should_process(
-            child, occtBasePath
-        )
+        return child.location.file.name == "myMain.h" and should_process(child)
     return (
-        child.extent.start.file.name.startswith(occtBasePath)
+        child.extent.start.file.name.startswith(OCCT_SRC_PATH)
         and filter_packages(os.path.basename(os.path.dirname(child.location.file.name)))
-        and should_process(child, occtBasePath)
+        and should_process(child)
     )
 
 
@@ -97,7 +93,7 @@ def should_process_template(child, is_custom_build):
         )
     return (
         (
-            child.extent.start.file.name.startswith(occtBasePath)
+            child.extent.start.file.name.startswith(OCCT_SRC_PATH)
             and filter_packages(
                 os.path.basename(os.path.dirname(child.location.file.name))
             )
@@ -154,7 +150,6 @@ def process_template(child: cx.Cursor):
 def embind_generate_class(tu_info: TuInfo, preamble, child) -> str:
     embindings = EmbindBindings(tu_info)
     output = embindings.processClass(child)
-
     return preamble + output
 
 
@@ -162,21 +157,18 @@ def embind_generate_template(tu_info: TuInfo, preamble, child) -> str:
     [template_class, template_args] = process_template(child)
     embindings = EmbindBindings(tu_info)
     output = embindings.processClass(template_class, child, template_args)
-
     return preamble + output
 
 
 def embind_generate_enum(tu_info: TuInfo, preamble, child) -> str:
     embindings = EmbindBindings(tu_info)
     output = embindings.processEnum(child)
-
     return preamble + output
 
 
 def ts_generate_class(tu_info: TuInfo, preamble, child) -> str:
     typescript = TypescriptBindings(tu_info)
     output = typescript.processClass(child)
-
     return json.dumps(
         {
             ".d.ts": preamble + output,
@@ -190,7 +182,6 @@ def ts_generate_template(tu_info: TuInfo, preamble, child) -> str:
     [templateClass, templateArgs] = process_template(child)
     typescript = TypescriptBindings(tu_info)
     output = typescript.processClass(templateClass, child, templateArgs)
-
     return json.dumps(
         {
             ".d.ts": preamble + output,
@@ -203,7 +194,6 @@ def ts_generate_template(tu_info: TuInfo, preamble, child) -> str:
 def ts_generate_enum(tu_info: TuInfo, preamble, child) -> str:
     typescript = TypescriptBindings(tu_info)
     output = typescript.processEnum(child)
-
     return json.dumps(
         {
             ".d.ts": preamble + output,
@@ -213,6 +203,63 @@ def ts_generate_enum(tu_info: TuInfo, preamble, child) -> str:
     )
 
 
+def process_node(
+    tu_info: TuInfo,
+    child: cx.Cursor,
+    filter_fn: Callable[[Any, bool], bool],
+    cpp_process_fn: Callable[[TuInfo, str, Any], str],
+    dts_process_fn: Callable[[TuInfo, str, Any], str],
+    custom_code: str,
+    processed_cache: dict[str, str],
+    is_custom_build: bool,
+) -> int:
+    if (
+        not filter_fn(child, is_custom_build)
+        or child.spelling == ""
+        or child.spelling.startswith("(unnamed")
+    ):
+        return 0
+
+    preamble_key: str = child.extent.start.file.name
+    if preamble_key in processed_cache:
+        return 0
+    else:
+        processed_cache[preamble_key] = "processing"
+
+    relative_file: str = preamble_key.replace(OCCT_SRC_PATH, "")
+
+    base_filename = f"{buildDirectory}/bindings/{relative_file}/{child.spelling if child.spelling != '' else child.type.spelling}"
+    dts_filename = f"{base_filename}.d.ts"
+    cpp_filename = f"{base_filename}.cpp"
+
+    if os.path.exists(cpp_filename):
+        return 0
+
+    mkdirp(f"{buildDirectory}/bindings/{os.path.dirname(relative_file)}")
+    mkdirp(f"{buildDirectory}/bindings/{relative_file}")
+
+    cached_preamble = preambles_cache.get(preamble_key)
+
+    preamble = (
+        cached_preamble + referenceTypeTemplateDefs + custom_code
+        if cached_preamble is not None
+        else custom_code
+        + referenceTypeTemplateDefs  # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
+    )
+    try:
+        cpp_output = cpp_process_fn(tu_info, preamble, child)
+        dts_output = dts_process_fn(tu_info, preamble, child)
+        with open(cpp_filename, "w") as f:
+            f.write(cpp_output)
+        with open(dts_filename, "w") as f:
+            f.write(dts_output)
+        processed_cache[preamble_key] = "done"
+        return 1
+    except SkipException as e:
+        print(str(e))
+        return 0
+
+
 def process_children(
     tu_info: TuInfo,
     items: list[cx.Cursor],
@@ -220,65 +267,35 @@ def process_children(
     cpp_process_fn: Callable[[TuInfo, str, Any], str],
     dts_process_fn: Callable[[TuInfo, str, Any], str],
     custom_code: str,
-    processed_cache: UltraDict,
+    processed_cache: dict[str, str],
 ):
     is_custom_build = custom_code.strip() != ""
 
     process_count = 0
     for child in items:
-        if (
-            not filter_fn(child, is_custom_build)
-            or child.spelling == ""
-            or child.spelling.startswith("(unnamed")
-        ):
-            continue
-
-        child_path = child.extent.start.file.name
-        preamble_key = resolve_header_source(child_path)
-        if preamble_key in processed_cache:
-            continue
-
-        relative_file: str = child_path.replace(OCCT_SRC_PATH, "")
-
-        base_filename = f"{buildDirectory}/bindings/{relative_file}/{child.spelling if child.spelling != '' else child.type.spelling}"
-        dts_filename = f"{base_filename}.d.ts"
-        cpp_filename = f"{base_filename}.cpp"
-
-        if os.path.exists(cpp_filename):
-            continue
-
-        mkdirp(f"{buildDirectory}/bindings/{os.path.dirname(relative_file)}")
-        mkdirp(f"{buildDirectory}/bindings/{relative_file}")
-
-        cached_preamble = preambles_cache.get(preamble_key)
-
-        preamble = (
-            cached_preamble + referenceTypeTemplateDefs + custom_code
-            if cached_preamble is not None
-            else custom_code  # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
+        process_count += process_node(
+            tu_info,
+            child,
+            filter_fn,
+            cpp_process_fn,
+            dts_process_fn,
+            custom_code,
+            processed_cache,
+            is_custom_build,
         )
-        try:
-            cpp_output = cpp_process_fn(tu_info, preamble, child)
-            dts_output = dts_process_fn(tu_info, preamble, child)
-            with open(cpp_filename, "w") as f:
-                f.write(cpp_output)
-            with open(dts_filename, "w") as f:
-                f.write(dts_output)
-            process_count += 1
-            processed_cache[preamble_key] = True
-        except SkipException as e:
-            print(str(e))
 
     return process_count
 
 
-def process_include(custom_code: str, processed_cache: UltraDict, include: str):
-    target = resolve_header_source(include)
-
-    if target in processed_cache:
+def process_include(
+    include_path: str, processed_cache: dict[str, str], custom_code: str
+) -> tuple[str, int]:
+    if include_path in processed_cache or not filter_include(
+        os.path.basename(include_path)
+    ):
         return ("skipped", 0)
 
-    tu_info = TuInfo(target)
+    tu_info = TuInfo(include_path)
 
     all_children_count = process_children(
         tu_info,
@@ -307,28 +324,30 @@ def process_include(custom_code: str, processed_cache: UltraDict, include: str):
         custom_code,
         processed_cache,
     )
-    processed_cache[target] = True
+    processed_cache[include_path] = "done"
     return ("ok", all_children_count + typedefs_count + enums_count)
 
 
 def process_sources(custom_code: str = ""):
-    completed_includes = UltraDict()
+    processed_cache: dict[str, str] = {}
     ok = 0
     start = time.time()
-    targets = ["/occt/src/AIS/AIS_InteractiveContext.cxx"]
-    print(targets)
+    targets = ["/occt/src/AIS/AIS_Circle.hxx"]
     total = len(targets)
 
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as p:
-        for status, count in tqdm(
-            p.imap_unordered(
-                partial(process_include, custom_code, completed_includes),
-                sorted(targets),
-            ),
-            total=total,
+    with ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(process_include, inc, processed_cache, custom_code): inc
+            for inc in targets
+        }
+        for future in tqdm(
+            as_completed(futures),
+            total=len(futures),
             desc="Generating bindings",
             unit="file",
         ):
+            status, count = future.result()
+            print(status, count)
             if status == "ok":
                 ok += count
             if status == "skipped":

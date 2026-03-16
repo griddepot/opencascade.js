@@ -1,8 +1,8 @@
-def filter_packages(packageName):
-  if packageName == "":
+def filter_packages(name):
+  if name == "":
     return False
 
-  if packageName in [
+  if name in [
     ## Full Module Draw
       ## Toolkit TKDraw
       "DBRep",

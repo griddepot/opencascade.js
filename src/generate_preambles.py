@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import clang.cindex as cx
 from tqdm import tqdm
 
-from common import OCCT_INCLUDE_FILES, OCCT_INCLUDE_PATH_ARGS, resolve_header_source
+from common import OCCT_INCLUDE_FILES, OCCT_INCLUDE_PATH_ARGS
 from filters.includes import filter_include
 from filters.pkgs import filter_packages
 
@@ -16,18 +16,17 @@ def get_include_name(file_inclusion: cx.FileInclusion):
     return os.path.basename(file_inclusion.include.name)
 
 
-def generate_preamble(file_path: str) -> tuple[str, str]:
-    """Get the preamble from an OCCT source/header file"""
-    
-    source_path = resolve_header_source(file_path)
+def generate_preamble(header_path: str, header_name: str) -> tuple[str, str]:
+    """Get the preamble from an OCCT header file"""
+
     index = cx.Index.create()
     tu = index.parse(
-        source_path,
+        header_path,
         ["-x", "c++", "-stdlib=libc++", *OCCT_INCLUDE_PATH_ARGS],
         options=cx.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
     )
 
-    default_include = os.path.basename(source_path).replace(".cxx", ".hxx")
+    default_include = header_name
     valid_includes = list(
         dict.fromkeys(
             [
@@ -43,23 +42,26 @@ def generate_preamble(file_path: str) -> tuple[str, str]:
 
     index = None
     tu = None
-    return (source_path, os.linesep.join(valid_includes) + os.linesep)
+    return (header_path, os.linesep.join(valid_includes) + os.linesep)
 
 
 def generate_preambles():
 
-    source_files = sorted(
+    targets = sorted(
         {
-            header
-            for header in OCCT_INCLUDE_FILES
-            if filter_packages(os.path.basename(os.path.dirname(header)))
+            (header_path, header_name)
+            for pkg, header_path, header_name in OCCT_INCLUDE_FILES
+            if filter_packages(pkg)
         }
     )
 
     preambles: dict[str, str] = {}
 
     with ThreadPoolExecutor() as executor:
-        futures = {executor.submit(generate_preamble, fp): fp for fp in source_files}
+        futures = {
+            executor.submit(generate_preamble, header_path, header_name): (header_path, header_name)
+            for (header_path, header_name) in targets
+        }
         for future in tqdm(
             as_completed(futures), total=len(futures), desc="Generating preambles"
         ):

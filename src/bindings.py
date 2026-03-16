@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import List, Tuple
 
@@ -11,9 +12,10 @@ from wasm_gen.common import (
 )
 from tu_info import TuInfo
 
+logger = logging.getLogger()
 
 def merge(sep: str, *strings: List[str]):
-  return sep.join(*strings)
+  return sep.join(strings)
 
 def pick(condition: bool, strTrue: str, strFalse: str):
   return strTrue if condition else strFalse

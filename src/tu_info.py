@@ -22,6 +22,7 @@ def default_parse(
         path,
         ["-x", "c++", "-stdlib=libc++"] + additional_flags + includes,
         [[name, code] for name, code in additional_cpp_code],
+        options=cx.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
     )
 
     if len(translation_unit.diagnostics) > 0:
@@ -60,7 +61,7 @@ def node_is_include(n: cx.Cursor):
     return n.kind == cx.CursorKind.INCLUSION_DIRECTIVE
 
 
-def is_underlying(node, check_occt_base_path=True):
+def is_underlying(node: cx.Cursor, check_occt_base_path=True):
     return check_occt_base_path and not node.location.file.name.startswith(
         OCCT_SRC_PATH
     )
