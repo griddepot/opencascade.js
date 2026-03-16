@@ -31,8 +31,8 @@ COPY headers/Standard_Version.hxx /occt/src/Standard/Standard_Version.hxx
   
 FROM base-image AS stage-uv
 
-COPY src/pyproject.toml /opencascade.js/src/pyproject.toml
-COPY src/uv.lock /opencascade.js/src/uv.lock
+COPY pyproject.toml /opencascade.js/src/pyproject.toml
+COPY uv.lock /opencascade.js/src/uv.lock
 WORKDIR /opencascade.js/src/
 RUN uv sync
   
@@ -71,7 +71,7 @@ RUN uv run generate_preambles.py
 FROM stage-preambles AS stage-bindgen
 
 COPY --from=stage-preambles /opencascade.js/build/preambles.json /opencascade.js/build/preambles.json
-COPY src/tu_info.py /opencascade.js/src/tu_info.py
+COPY src/clang_utils.py /opencascade.js/src/clang_utils.py
 COPY src/bindings.py /opencascade.js/src/bindings.py
 COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py
 

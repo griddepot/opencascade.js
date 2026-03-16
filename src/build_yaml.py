@@ -50,7 +50,7 @@ def verifyBinding(binding) -> bool:
     return False
 
 
-def verifyBindings(bindings) -> bool:
+def verifyBindings(bindings):
     for binding in bindings:
         if not verifyBinding(binding):
             raise Exception(

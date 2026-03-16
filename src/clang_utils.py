@@ -21,7 +21,7 @@ def default_parse(
     translation_unit = index.parse(
         path,
         ["-x", "c++", "-stdlib=libc++"] + additional_flags + includes,
-        [[name, code] for name, code in additional_cpp_code],
+        [(name, code) for name, code in additional_cpp_code],
         options=cx.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES,
     )
 
@@ -33,37 +33,57 @@ def default_parse(
     return translation_unit
 
 
-def is_template_typedef_node(node):
+def is_source_definition(n: cx.Cursor):
+    return n.get_definition() is not None and n == n.get_definition()
+
+
+def is_template_typedef_node(n: cx.Cursor):
     return (
-        node.kind == cx.CursorKind.TYPEDEF_DECL
-        and not (node.get_definition() is None or not node == node.get_definition())
-        and filter_typedef(node)
-        and node.type.get_num_template_arguments() != -1
-        and not ignore_duplicate_typedef(node)
+        n.kind == cx.CursorKind.TYPEDEF_DECL
+        and is_source_definition(n)
+        and filter_typedef(n)
+        and n.type.get_num_template_arguments() != -1
+        and not ignore_duplicate_typedef(n)
     )
 
 
-def is_typedef_node(node):
-    return node.kind == cx.CursorKind.TYPEDEF_DECL
+def is_typedef_node(n: cx.Cursor):
+    return n.kind == cx.CursorKind.TYPEDEF_DECL
 
 
-def is_enum_node(node):
-    return node.kind == cx.CursorKind.ENUM_DECL and filter_enum(node)
+def is_enum_node(n: cx.Cursor):
+    return n.kind == cx.CursorKind.ENUM_DECL and filter_enum(n)
 
 
-def is_class_node(node):
+def is_class_node(n: cx.Cursor):
     return (
-        node.kind == cx.CursorKind.CLASS_DECL or node.kind == cx.CursorKind.STRUCT_DECL
-    ) and not (node.get_definition() is None or not node == node.get_definition())
+        n.kind == cx.CursorKind.CLASS_DECL or n.kind == cx.CursorKind.STRUCT_DECL
+    ) and is_source_definition(n)
+
+
+def is_public_ctor(n: cx.Cursor) -> bool:
+    return (
+        n.kind == cx.CursorKind.CONSTRUCTOR
+        and n.access_specifier == cx.AccessSpecifier.PUBLIC
+    )
+
+
+def is_public_base_specifier(n: cx.Cursor) -> bool:
+    return (
+        n.kind == cx.CursorKind.CXX_BASE_SPECIFIER
+        and n.access_specifier == cx.AccessSpecifier.PUBLIC
+    )
 
 
 def node_is_include(n: cx.Cursor):
     return n.kind == cx.CursorKind.INCLUSION_DIRECTIVE
 
 
-def is_underlying(node: cx.Cursor, check_occt_base_path=True):
-    return check_occt_base_path and not node.location.file.name.startswith(
-        OCCT_SRC_PATH
+def is_underlying(n: cx.Cursor, check_occt_base_path=True):
+    return (
+        check_occt_base_path
+        and n.location.file is not None
+        and n.location.file.name.startswith(OCCT_SRC_PATH)
     )
 
 
@@ -82,10 +102,10 @@ class TuInfo:
     ):
         self.path: str = path
         """The path to the source file"""
-        
+
         self.symbol_name = os.path.basename(self.path)
         """The name of the actual source path extracted from the path"""
-        
+
         self.tu: cx.TranslationUnit = parse_fn(
             path, additional_cpp_code, additional_flags, includes
         )

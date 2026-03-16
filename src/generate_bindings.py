@@ -14,7 +14,7 @@ from common import OCCT_SRC_PATH
 from filters.classes import filter_class
 from filters.includes import filter_include
 from filters.pkgs import filter_packages
-from tu_info import TuInfo
+from clang_utils import TuInfo, is_source_definition
 from wasm_gen.common import SkipException
 
 libraryBasePath = "/opencascade.js/build/bindings"
@@ -40,135 +40,131 @@ def mkdirp(name: str) -> None:
             raise
 
 
-def should_process_class(child, is_custom_build):
-    def should_process(child: cx.Cursor):
-        if child.get_definition() is None or not child == child.get_definition():
+def should_process_class(node: cx.Cursor, is_custom_build: bool) -> bool:
+    def should_process(n: cx.Cursor) -> bool:
+        if not is_source_definition(n):
             return False
 
-        if not filter_class(child, is_custom_build):
-            print("bad class")
-            return False
-
-        if (
-            child.kind == cx.CursorKind.CLASS_DECL
-            or child.kind == cx.CursorKind.STRUCT_DECL  # ty:ignore[unresolved-attribute]
-        ) and not child.type.get_num_template_arguments() == -1:
+        if not filter_class(n):
             return False
 
         if (
-            child.kind == cx.CursorKind.CLASS_DECL
-            or child.kind == cx.CursorKind.STRUCT_DECL
-        ):
+            n.kind == cx.CursorKind.CLASS_DECL or n.kind == cx.CursorKind.STRUCT_DECL
+        ) and not n.type.get_num_template_arguments() == -1:
+            return False
+
+        if n.kind == cx.CursorKind.CLASS_DECL or n.kind == cx.CursorKind.STRUCT_DECL:
             baseSpec = [
                 x
-                for x in child.get_children()
+                for x in n.get_children()
                 if x.kind == cx.CursorKind.CXX_BASE_SPECIFIER
                 and x.access_specifier == cx.AccessSpecifier.PUBLIC
             ]
             if len(baseSpec) > 1:
-                print("cannot handle multiple base classes (" + child.spelling + ")")
+                print(f"cannot handle multiple base classes ({n.spelling})")
                 return False
             return True
 
         return False
 
+    filename = node.extent.start.file.name if node.extent.start.file is not None else ""
     if is_custom_build:
-        return child.location.file.name == "myMain.h" and should_process(child)
+        return filename == "myMain.h" and should_process(node)
     return (
-        child.extent.start.file.name.startswith(OCCT_SRC_PATH)
-        and filter_packages(os.path.basename(os.path.dirname(child.location.file.name)))
-        and should_process(child)
+        filename.startswith(OCCT_SRC_PATH)
+        and filter_packages(os.path.basename(os.path.dirname(filename)))
+        and should_process(node)
     )
 
 
-def should_process_template(child, is_custom_build):
+def should_process_template(node: cx.Cursor, is_custom_build: bool) -> bool:
+    filename = node.extent.start.file.name if node.extent.start.file is not None else ""
     if is_custom_build:
         return (
-            child.location.file.name == "myMain.h"
-            and child.kind == cx.CursorKind.TYPEDEF_DECL
+            filename == "myMain.h"
+            and node.kind == cx.CursorKind.TYPEDEF_DECL
             and (
-                child.underlying_typedef_type.kind == cx.TypeKind.ELABORATED
-                or child.underlying_typedef_type.kind == cx.TypeKind.UNEXPOSED
+                node.underlying_typedef_type.kind == cx.TypeKind.ELABORATED
+                or node.underlying_typedef_type.kind == cx.TypeKind.UNEXPOSED
             )
         )
     return (
         (
-            child.extent.start.file.name.startswith(OCCT_SRC_PATH)
-            and filter_packages(
-                os.path.basename(os.path.dirname(child.location.file.name))
-            )
+            filename.startswith(OCCT_SRC_PATH)
+            and filter_packages(os.path.basename(os.path.dirname(filename)))
         )
-        and child.kind == cx.CursorKind.TYPEDEF_DECL
+        and node.kind == cx.CursorKind.TYPEDEF_DECL
         and (
-            child.underlying_typedef_type.kind == cx.TypeKind.ELABORATED
-            or child.underlying_typedef_type.kind == cx.TypeKind.UNEXPOSED
+            node.underlying_typedef_type.kind == cx.TypeKind.ELABORATED
+            or node.underlying_typedef_type.kind == cx.TypeKind.UNEXPOSED
         )
     )
 
 
-def should_process_enum(child, is_custom_build):
+def should_process_enum(node: cx.Cursor, is_custom_build: bool) -> bool:
+    filename = node.extent.start.file.name if node.extent.start.file is not None else ""
     if is_custom_build:
-        return child.location.file.name == "myMain.h"
+        return filename == "myMain.h"
     return (
-        child.extent.start.file.name.startswith(OCCT_SRC_PATH)
-        and filter_packages(os.path.basename(os.path.dirname(child.location.file.name)))
-    ) and child.kind == cx.CursorKind.ENUM_DECL  # ty:ignore[unresolved-attribute]
+        filename.startswith(OCCT_SRC_PATH)
+        and filter_packages(os.path.basename(os.path.dirname(filename)))
+    ) and node.kind == cx.CursorKind.ENUM_DECL
 
 
-def process_template(child: cx.Cursor):
+def process_template(node: cx.Cursor) -> tuple[cx.Cursor, dict[str, cx.Type]]:
     template_refs: list[cx.Cursor] = [
-        node for node in child.get_children() if node.kind == cx.CursorKind.TEMPLATE_REF
+        child
+        for child in node.get_children()
+        if child.kind == cx.CursorKind.TEMPLATE_REF
     ]
-    if len(template_refs) != 1:
+    if len(template_refs) != 1 or not template_refs[0].get_definition():
         raise SkipException(
-            'The number of template refs for the template typedef "'
-            + child.spelling
-            + '" is not 1!'
+            f'The number of template refs for the template typedef "{node.spelling}" is not 1!'
         )
 
-    template_class: cx.Cursor = template_refs[0].get_definition()
+    template_class: cx.Cursor | None = template_refs[0].get_definition()
     if template_class is None:
-        raise SkipException("Template class is None (" + child.spelling + ")")
+        raise SkipException(f"Template class is None ({node.spelling})")
     template_arg_names: list[cx.Cursor] = [
-        node
-        for node in template_class.get_children()
-        if node.kind == cx.CursorKind.TEMPLATE_TYPE_PARAMETER
+        n
+        for n in template_class.get_children()
+        if n.kind == cx.CursorKind.TEMPLATE_TYPE_PARAMETER
     ]
 
-    template_args = {}
+    template_args: dict[str, cx.Type] = {}
     for i, arg_name in enumerate(template_arg_names):
-        arg_type = child.type.get_template_argument_type(i)
+        arg_type = node.type.get_template_argument_type(i)
         if arg_type.spelling == "":
             raise SkipException(
-                f"Template argument type is empty for at least one argument. Is this class using default values for template arguments? This is currently not supported ({child.spelling})"
+                f"Template argument type is empty for at least one argument. Is this class using default values for template arguments? This is currently not supported ({node.spelling})"
             )
         template_args[arg_name.spelling] = arg_type
 
-    return [template_class, template_args]
+    return (template_class, template_args)
 
 
-def embind_generate_class(tu_info: TuInfo, preamble, child) -> str:
+def embind_generate_class(tu_info: TuInfo, preamble: str, node: cx.Cursor) -> str:
     embindings = EmbindBindings(tu_info)
-    output = embindings.processClass(child)
+    output = embindings.process_class(node)
     return preamble + output
 
 
-def embind_generate_template(tu_info: TuInfo, preamble, child) -> str:
-    [template_class, template_args] = process_template(child)
+def embind_generate_template(tu_info: TuInfo, preamble: str, node: cx.Cursor) -> str:
+    template_class, template_args = process_template(node)
     embindings = EmbindBindings(tu_info)
-    output = embindings.processClass(template_class, child, template_args)
+    output = embindings.process_class(template_class, node, template_args)
     return preamble + output
 
 
-def embind_generate_enum(tu_info: TuInfo, preamble, child) -> str:
+def embind_generate_enum(tu_info: TuInfo, preamble: str, node: cx.Cursor) -> str:
     embindings = EmbindBindings(tu_info)
-    output = embindings.processEnum(child)
+    output = embindings.process_enum(node)
     return preamble + output
 
 
-def ts_generate_class(tu_info: TuInfo, preamble, child) -> str:
+def ts_generate_class(tu_info: TuInfo, preamble: str, node: cx.Cursor) -> str:
     typescript = TypescriptBindings(tu_info)
-    output = typescript.processClass(child)
+    output = typescript.process_class(node)
     return json.dumps(
         {
             ".d.ts": preamble + output,
@@ -178,10 +174,10 @@ def ts_generate_class(tu_info: TuInfo, preamble, child) -> str:
     )
 
 
-def ts_generate_template(tu_info: TuInfo, preamble, child) -> str:
-    [templateClass, templateArgs] = process_template(child)
+def ts_generate_template(tu_info: TuInfo, preamble: str, node: cx.Cursor) -> str:
+    template_class, template_args = process_template(node)
     typescript = TypescriptBindings(tu_info)
-    output = typescript.processClass(templateClass, child, templateArgs)
+    output = typescript.process_class(template_class, node, template_args)
     return json.dumps(
         {
             ".d.ts": preamble + output,
@@ -191,9 +187,9 @@ def ts_generate_template(tu_info: TuInfo, preamble, child) -> str:
     )
 
 
-def ts_generate_enum(tu_info: TuInfo, preamble, child) -> str:
+def ts_generate_enum(tu_info: TuInfo, preamble: str, node: cx.Cursor) -> str:
     typescript = TypescriptBindings(tu_info)
-    output = typescript.processEnum(child)
+    output = typescript.process_enum(node)
     return json.dumps(
         {
             ".d.ts": preamble + output,
@@ -205,7 +201,7 @@ def ts_generate_enum(tu_info: TuInfo, preamble, child) -> str:
 
 def process_node(
     tu_info: TuInfo,
-    child: cx.Cursor,
+    node: cx.Cursor,
     filter_fn: Callable[[Any, bool], bool],
     cpp_process_fn: Callable[[TuInfo, str, Any], str],
     dts_process_fn: Callable[[TuInfo, str, Any], str],
@@ -214,21 +210,23 @@ def process_node(
     is_custom_build: bool,
 ) -> int:
     if (
-        not filter_fn(child, is_custom_build)
-        or child.spelling == ""
-        or child.spelling.startswith("(unnamed")
+        not filter_fn(node, is_custom_build)
+        or node.spelling == ""
+        or node.spelling.startswith("(unnamed")
     ):
         return 0
 
-    preamble_key: str = child.extent.start.file.name
-    if preamble_key in processed_cache:
+    preamble_key: str | None = (
+        node.extent.start.file.name if node.extent.start.file is not None else None
+    )
+    if preamble_key is None or preamble_key in processed_cache:
         return 0
     else:
         processed_cache[preamble_key] = "processing"
 
     relative_file: str = preamble_key.replace(OCCT_SRC_PATH, "")
 
-    base_filename = f"{buildDirectory}/bindings/{relative_file}/{child.spelling if child.spelling != '' else child.type.spelling}"
+    base_filename = f"{buildDirectory}/bindings/{relative_file}/{node.spelling if node.spelling != '' else node.type.spelling}"
     dts_filename = f"{base_filename}.d.ts"
     cpp_filename = f"{base_filename}.cpp"
 
@@ -247,8 +245,8 @@ def process_node(
         + referenceTypeTemplateDefs  # if the preamble isn't in the cache, uhhhh, skill issue? (this should never happen and should be fixed)
     )
     try:
-        cpp_output = cpp_process_fn(tu_info, preamble, child)
-        dts_output = dts_process_fn(tu_info, preamble, child)
+        cpp_output = cpp_process_fn(tu_info, preamble, node)
+        dts_output = dts_process_fn(tu_info, preamble, node)
         with open(cpp_filename, "w") as f:
             f.write(cpp_output)
         with open(dts_filename, "w") as f:
@@ -262,20 +260,20 @@ def process_node(
 
 def process_children(
     tu_info: TuInfo,
-    items: list[cx.Cursor],
+    child_nodes: list[cx.Cursor],
     filter_fn: Callable[[Any, bool], bool],
     cpp_process_fn: Callable[[TuInfo, str, Any], str],
     dts_process_fn: Callable[[TuInfo, str, Any], str],
     custom_code: str,
     processed_cache: dict[str, str],
-):
+) -> int:
     is_custom_build = custom_code.strip() != ""
 
     process_count = 0
-    for child in items:
+    for node in child_nodes:
         process_count += process_node(
             tu_info,
-            child,
+            node,
             filter_fn,
             cpp_process_fn,
             dts_process_fn,
@@ -324,7 +322,6 @@ def process_include(
         custom_code,
         processed_cache,
     )
-    processed_cache[include_path] = "done"
     return ("ok", all_children_count + typedefs_count + enums_count)
 
 
@@ -333,7 +330,6 @@ def process_sources(custom_code: str = ""):
     ok = 0
     start = time.time()
     targets = ["/occt/src/AIS/AIS_Circle.hxx"]
-    total = len(targets)
 
     with ThreadPoolExecutor() as executor:
         futures = {

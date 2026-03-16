@@ -79,5 +79,13 @@
     "stop_token": "cpp",
     "core": "cpp",
     "*.ipp": "cpp"
-  }
+  },
+  "python.defaultInterpreterPath": "",
+  "python.pixiToolPath": "",
+  "python.poetryPath": "",
+  "python.terminal.activateEnvironment": false,
+  "python.terminal.shellIntegration.enabled": false,
+  "python.testing.pytestPath": "",
+  "python.useEnvironmentsExtension": false,
+  "python.pipenvPath": ""
 }
