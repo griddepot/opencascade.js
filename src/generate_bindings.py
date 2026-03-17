@@ -10,7 +10,7 @@ import clang.cindex as cx
 from tqdm import tqdm
 
 from bindings import EmbindBindings, TypescriptBindings
-from common import OCCT_SRC_PATH
+from common import OCCT_SRC_PATH, OCCT_INCLUDE_FILES
 from filters.classes import filter_class
 from filters.includes import filter_include
 from filters.pkgs import filter_packages
@@ -229,10 +229,12 @@ def process_node(
     base_filename = f"{buildDirectory}/bindings/{relative_file}/{node.spelling if node.spelling != '' else node.type.spelling}"
     dts_filename = f"{base_filename}.d.ts"
     cpp_filename = f"{base_filename}.cpp"
+    
 
     if os.path.exists(cpp_filename):
         return 0
 
+    print(f"Processing {relative_file} ({node.spelling})...")
     mkdirp(f"{buildDirectory}/bindings/{os.path.dirname(relative_file)}")
     mkdirp(f"{buildDirectory}/bindings/{relative_file}")
 
@@ -285,9 +287,10 @@ def process_children(
     return process_count
 
 
-def process_include(
+def process_header(
     include_path: str, processed_cache: dict[str, str], custom_code: str
 ) -> tuple[str, int]:
+    print(f"Processing {include_path}...")
     if include_path in processed_cache or not filter_include(
         os.path.basename(include_path)
     ):
@@ -329,25 +332,23 @@ def process_sources(custom_code: str = ""):
     processed_cache: dict[str, str] = {}
     ok = 0
     start = time.time()
-    targets = ["/occt/src/AIS/AIS_Circle.hxx"]
+    targets = OCCT_INCLUDE_FILES
+    # targets = ["/occt/src/AIS/AIS_Circle.hxx"]
 
-    with ThreadPoolExecutor() as executor:
-        futures = {
-            executor.submit(process_include, inc, processed_cache, custom_code): inc
-            for inc in targets
-        }
-        for future in tqdm(
-            as_completed(futures),
-            total=len(futures),
-            desc="Generating bindings",
-            unit="file",
-        ):
-            status, count = future.result()
-            print(status, count)
-            if status == "ok":
-                ok += count
-            if status == "skipped":
-                print("uhhh")
+    with tqdm(total=len(targets), desc="Generating bindings", unit="file") as pbar:
+        with ThreadPoolExecutor() as executor:
+            futures = {
+                executor.submit(process_header, header_path, processed_cache, custom_code)
+                for (_, header_path, _) in targets
+            }
+            for future in as_completed(futures):
+                status, count = future.result()
+                print(status, count)
+                pbar.update(count)
+                if status == "ok":
+                    ok += count
+                if status == "skipped":
+                    print("uhhh")
 
     elapsed = time.time() - start
     print(

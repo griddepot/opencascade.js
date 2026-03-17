@@ -31,10 +31,10 @@ def get_global_includes() -> tuple[
     )
 
 
-[
+(
     OCCT_INCLUDE_FILES,
     OCCT_INCLUDE_PATHS,
-] = get_global_includes()
+) = get_global_includes()
 
 OCCT_INCLUDE_PATH_ARGS = as_include_args(OCCT_INCLUDE_PATHS)
 

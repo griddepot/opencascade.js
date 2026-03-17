@@ -77,7 +77,7 @@ COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py
 
 WORKDIR /opencascade.js/src/
 
-RUN uv run generate_bindings.py
+# RUN uv run generate_bindings.py
 
 # =============================================================
 

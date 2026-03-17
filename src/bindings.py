@@ -186,7 +186,8 @@ class Bindings:
                     class_node, method, template_decl, template_args
                 )
             except SkipException as e:
-                print(str(e))
+                pass
+                # print(str(e))
         output += self.processFinalizeClass()
         if not isAbstract:
             try:
@@ -194,7 +195,8 @@ class Bindings:
                     class_node, None, template_decl, template_args
                 )
             except SkipException as e:
-                print(str(e))
+                pass
+                # print(str(e))
         return output
 
 
@@ -666,19 +668,21 @@ class EmbindBindings(Bindings):
             and method.kind == cx.CursorKind.FIELD_DECL
         ):
             if method.type.kind == cx.TypeKind.CONSTANTARRAY:
-                print(
-                    "Cannot handle array properties, skipping "
-                    + className
-                    + "::"
-                    + method.spelling
-                )
+                pass
+                # print(
+                #     "Cannot handle array properties, skipping "
+                #     + className
+                #     + "::"
+                #     + method.spelling
+                # )
             elif not method.type.get_pointee().kind == cx.TypeKind.INVALID:
-                print(
-                    "Cannot handle pointer properties, skipping "
-                    + className
-                    + "::"
-                    + method.spelling
-                )
+                pass
+                # print(
+                #     "Cannot handle pointer properties, skipping "
+                #     + className
+                #     + "::"
+                #     + method.spelling
+                # )
             else:
                 output += f'{indent(2)}.property("{method.spelling}", &{className}::{method.spelling})\n'
         return output
@@ -801,9 +805,10 @@ class TypescriptBindings(Bindings):
         baseClassDefinition = ""
         if len(baseSpec) > 0:
             if any(x in baseSpec[0].type.spelling for x in [":", "<"]):
-                print(
-                    f'Unsupported character for base class "{baseSpec[0].type.spelling}" ({class_node.spelling})'
-                )
+                pass
+                # print(
+                #     f'Unsupported character for base class "{baseSpec[0].type.spelling}" ({class_node.spelling})'
+                # )
             else:
                 baseClassDefinition = " extends " + baseSpec[0].type.spelling
                 # self.addImportIfWeHaveTo(baseSpec[0].type.spelling)
@@ -903,11 +908,11 @@ class TypescriptBindings(Bindings):
             or ":" in resTypeName
             or "<" in resTypeName
         ):
-            print(
-                "could not generate proper types for type name '"
-                + resTypeName
-                + "', using 'any' instead."
-            )
+            # print(
+            #     "could not generate proper types for type name '"
+            #     + resTypeName
+            #     + "', using 'any' instead."
+            # )
             resTypeName = "any"
         return resTypeName
 
@@ -931,9 +936,9 @@ class TypescriptBindings(Bindings):
         )
         arg_typename = self.to_ts_type(arg_typename)
         if arg_typename == "" or "(" in arg_typename or ":" in arg_typename:
-            print(
-                f"could not generate proper types for type name '{arg_typename}', using 'any' instead.'"
-            )
+            # print(
+            #     f"could not generate proper types for type name '{arg_typename}', using 'any' instead.'"
+            # )
             arg_typename = "any"
 
         argname = arg.spelling if not arg.spelling == "" else ("a" + str(suffix))
