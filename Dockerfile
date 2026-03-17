@@ -1,75 +1,103 @@
-FROM emscripten/emsdk:3.1.14 AS base-image
+FROM emscripten/emsdk:4.0.23 AS base-image
+
+ARG multithreaded=0
+ENV BUILD_MULTITHREADED=${multithreaded}
 
 RUN \
-  apt update -y && \
-  apt install -y \
-  bash \
+  apt-get update -y && \
+  apt-get install -y \
   build-essential \
-  cmake \
   curl \
   git \
-  libffi-dev \
-  libgdbm-dev \
-  libncurses5-dev \
-  libnss3-dev \
-  libreadline-dev \
-  libsqlite3-dev \
-  libssl-dev \
-  libbz2-dev \
-  npm \
-  python3 \
-  python3-pip \
-  python3-setuptools \
-  zlib1g-dev
+  vim
 
-RUN \
-  pip install \
-  libclang==15.0.6.1 \
-  pyyaml==6.0 \
-  cerberus==1.3.4 \
-  argparse==1.4.0
+COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
 
 WORKDIR /rapidjson/
 RUN \
-  git clone -b v1.1.0 https://github.com/Tencent/rapidjson.git . 
+  git clone --depth 1 -b v1.1.0 https://github.com/Tencent/rapidjson.git . 
 
-WORKDIR /freetype/
-RUN \
-  git clone -b VER-2-13-0 https://github.com/freetype/freetype.git .
-
-ENV OCCT_COMMIT_HASH_FULL bb368e271e24f63078129283148ce83db6b9670a
+ENV OCCT_VERSION=V7_9_3
 WORKDIR /occt/
 RUN \
-  curl "https://git.dev.opencascade.org/gitweb/?p=occt.git;a=snapshot;h=${OCCT_COMMIT_HASH_FULL};sf=tgz" -o occt.tar.gz && \
-  tar -xvf occt.tar.gz && \
-  export OCCT_COMMIT_HASH=$(echo ${OCCT_COMMIT_HASH_FULL} | cut -c 1-7) && \
-  mv occt-$OCCT_COMMIT_HASH/* . && \
-  mv occt-$OCCT_COMMIT_HASH/.* . || true && \
-  rm occt-$OCCT_COMMIT_HASH -r
+  curl -L "https://github.com/Open-Cascade-SAS/OCCT/archive/refs/tags/${OCCT_VERSION}.tar.gz" -o occt.tar.gz && \
+  tar -xzf occt.tar.gz && \
+  mv OCCT-*/* . && \
+  mv OCCT-*/.* . || true && \
+  rmdir OCCT-* || true && \
+  rm occt.tar.gz
 
-WORKDIR /opencascade.js/
-COPY src ./src
-WORKDIR /src/
+COPY headers/Standard_Version.hxx /occt/src/Standard/Standard_Version.hxx
+  
+FROM base-image AS stage-uv
 
-ARG threading=single-threaded
-ENV threading=$threading
+COPY pyproject.toml /opencascade.js/src/pyproject.toml
+COPY uv.lock /opencascade.js/src/uv.lock
+WORKDIR /opencascade.js/src/
+RUN uv sync
+  
+# =============================================================
+  
+# FROM base-image AS stage-patched
+# RUN python3 /opencascade.js/src/apply_patches.py
 
-FROM base-image AS test-image
+# =============================================================
 
-RUN \
-  mkdir /opencascade.js/build/ && \
-  mkdir /opencascade.js/dist/ && \
-  /opencascade.js/src/applyPatches.py
+FROM stage-uv AS stage-compile-sources
 
-ENTRYPOINT ["/opencascade.js/src/buildFromYaml.py"]
+COPY src/common.py /opencascade.js/src/common.py
+COPY src/compile_sources.py /opencascade.js/src/compile_sources.py
+COPY src/filters /opencascade.js/src/filters/
 
-FROM test-image AS custom-build-image
+WORKDIR /opencascade.js/src/
 
-RUN \
-  /opencascade.js/src/generateBindings.py && \
-  /opencascade.js/src/compileBindings.py ${threading} && \
-  /opencascade.js/src/compileSources.py ${threading} && \
-  chmod -R 777 /opencascade.js/ && \
-  chmod -R 777 /occt
+RUN uv run compile_sources.py
 
-ENTRYPOINT ["/opencascade.js/src/buildFromYaml.py"]
+# =============================================================
+
+FROM stage-uv AS stage-preambles
+
+COPY src/filters /opencascade.js/src/filters/
+COPY src/common.py /opencascade.js/src/common.py
+COPY src/wasm_gen/ /opencascade.js/src/wasm_gen
+COPY src/generate_preambles.py /opencascade.js/src/generate_preambles.py
+
+WORKDIR /opencascade.js/src/
+
+RUN uv run generate_preambles.py
+
+# =============================================================
+
+FROM stage-preambles AS stage-bindgen
+
+COPY --from=stage-preambles /opencascade.js/build/preambles.json /opencascade.js/build/preambles.json
+COPY src/clang_utils.py /opencascade.js/src/clang_utils.py
+COPY src/bindings.py /opencascade.js/src/bindings.py
+COPY src/generate_bindings.py /opencascade.js/src/generate_bindings.py
+
+WORKDIR /opencascade.js/src/
+
+# RUN uv run generate_bindings.py
+
+# =============================================================
+
+FROM stage-bindgen AS stage-compile-bindings
+
+COPY src/compile_bindings.py /opencascade.js/src/compile_bindings.py
+COPY src/build_schema_def.py /opencascade.js/src/build_schema_def.py
+
+WORKDIR /opencascade.js/src/
+
+RUN uv run compile_bindings.py
+
+# =============================================================
+
+FROM stage-compile-bindings AS final-image
+
+COPY --from=stage-compile-sources /opencascade.js/build/sources /opencascade.js/build/sources
+COPY --from=stage-bindgen /opencascade.js/build/bindings /opencascade.js/build/bindings
+COPY src/build_yaml.py /opencascade.js/src/build_yaml.py
+
+WORKDIR /opencascade.js/src/
+
+ENTRYPOINT ["uv", "run", "build_yaml.py"]
