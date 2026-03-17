@@ -125,7 +125,7 @@ def filter_method_or_property(theClass, methodOrProperty):
     return False
 
   if methodOrProperty.access_specifier == clang.cindex.AccessSpecifier.PUBLIC and methodOrProperty.kind == clang.cindex.CursorKind.USING_DECLARATION:
-    print("Using declarations are not supported! (" + theClass.spelling + ", " + methodOrProperty.spelling + ")")
+    # print("Using declarations are not supported! (" + theClass.spelling + ", " + methodOrProperty.spelling + ")")
     return False
 
   if (

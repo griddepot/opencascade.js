@@ -1,4 +1,5 @@
 import multiprocessing
+from multiprocessing.managers import DictProxy
 import errno
 import json
 import os
@@ -205,7 +206,7 @@ def process_node(
     cpp_process_fn: Callable[[TuInfo, str, Any], str],
     dts_process_fn: Callable[[TuInfo, str, Any], str],
     custom_code: str,
-    processed_cache: dict[str, str],
+    processed_cache: DictProxy[str, str],
     is_custom_build: bool,
 ) -> int:
     if (
@@ -218,7 +219,9 @@ def process_node(
     preamble_key: str | None = (
         node.extent.start.file.name if node.extent.start.file is not None else None
     )
-    if preamble_key is None or (preamble_key in processed_cache and processed_cache[preamble_key] == "done"):
+    if preamble_key is None or (
+        preamble_key in processed_cache and processed_cache[preamble_key] == "done"
+    ):
         return 0
     else:
         processed_cache[preamble_key] = "processing"
@@ -254,7 +257,7 @@ def process_node(
         processed_cache[preamble_key] = "done"
         return 1
     except SkipException as e:
-        print(str(e))
+        # print(str(e))
         return 0
 
 
@@ -265,7 +268,7 @@ def process_children(
     cpp_process_fn: Callable[[TuInfo, str, Any], str],
     dts_process_fn: Callable[[TuInfo, str, Any], str],
     custom_code: str,
-    processed_cache: dict[str, str],
+    processed_cache: DictProxy[str, str],
 ) -> int:
     is_custom_build = custom_code.strip() != ""
 
@@ -286,17 +289,19 @@ def process_children(
 
 
 def process_header(
-    include_path: str, processed_cache: dict[str, str], custom_code: str
+   args: tuple[str, DictProxy[str, str], str]
 ) -> tuple[str, int]:
+    (include_path, processed_cache, custom_code) = args
     # print(f"Processing {include_path}...")
     if include_path in processed_cache or not filter_include(
         os.path.basename(include_path)
     ):
-        return ("skipped", 0)
+        return ("skipped", 1)
     else:
         processed_cache[include_path] = "pending"
 
     tu_info = TuInfo(include_path)
+
 
     all_children_count = process_children(
         tu_info,
@@ -327,10 +332,9 @@ def process_header(
     )
     return ("ok", all_children_count + typedefs_count + enums_count)
 
-
 def process_sources(custom_code: str = ""):
     manager = multiprocessing.Manager()
-    processed_cache = manager.dict()
+    processed_cache: DictProxy[str, str] = manager.dict()
     ok = 0
     start = time.time()
     targets = OCCT_INCLUDE_FILES
@@ -340,15 +344,14 @@ def process_sources(custom_code: str = ""):
         (header_path, processed_cache, custom_code) for (_, header_path, _) in targets
     ]
 
-    with tqdm(total=len(targets), desc="Generating bindings", unit="file") as pbar:
-        with multiprocessing.Pool() as p:
-            for status, count in p.starmap(process_header, args):
-                pbar.update(count)
-                if status == "ok":
-                    ok += count
-                if status == "skipped":
-                    print("uhhh")
+    pbar = tqdm(total=len(targets), desc="Generating bindings", unit="file")
 
+    with multiprocessing.Pool(os.process_cpu_count()) as p:
+        for status, count in p.imap_unordered(process_header, args):
+            pbar.update(count)
+            ok += count
+
+    pbar.close()
     elapsed = time.time() - start
     print(
         f"\nBinding generation done: {ok} generated, (total: {len(targets)}) in {elapsed / 60:.1f}min"
