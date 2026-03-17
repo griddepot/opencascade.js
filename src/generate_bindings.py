@@ -1,9 +1,8 @@
-#!/usr/bin/python3
+import multiprocessing
 import errno
 import json
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
 
 import clang.cindex as cx
@@ -61,7 +60,7 @@ def should_process_class(node: cx.Cursor, is_custom_build: bool) -> bool:
                 and x.access_specifier == cx.AccessSpecifier.PUBLIC
             ]
             if len(baseSpec) > 1:
-                print(f"cannot handle multiple base classes ({n.spelling})")
+                # print(f"cannot handle multiple base classes ({n.spelling})")
                 return False
             return True
 
@@ -219,7 +218,7 @@ def process_node(
     preamble_key: str | None = (
         node.extent.start.file.name if node.extent.start.file is not None else None
     )
-    if preamble_key is None or preamble_key in processed_cache:
+    if preamble_key is None or (preamble_key in processed_cache and processed_cache[preamble_key] == "done"):
         return 0
     else:
         processed_cache[preamble_key] = "processing"
@@ -229,12 +228,11 @@ def process_node(
     base_filename = f"{buildDirectory}/bindings/{relative_file}/{node.spelling if node.spelling != '' else node.type.spelling}"
     dts_filename = f"{base_filename}.d.ts"
     cpp_filename = f"{base_filename}.cpp"
-    
 
     if os.path.exists(cpp_filename):
         return 0
 
-    print(f"Processing {relative_file} ({node.spelling})...")
+    # print(f"Processing {relative_file} ({node.spelling})...")
     mkdirp(f"{buildDirectory}/bindings/{os.path.dirname(relative_file)}")
     mkdirp(f"{buildDirectory}/bindings/{relative_file}")
 
@@ -290,11 +288,13 @@ def process_children(
 def process_header(
     include_path: str, processed_cache: dict[str, str], custom_code: str
 ) -> tuple[str, int]:
-    print(f"Processing {include_path}...")
+    # print(f"Processing {include_path}...")
     if include_path in processed_cache or not filter_include(
         os.path.basename(include_path)
     ):
         return ("skipped", 0)
+    else:
+        processed_cache[include_path] = "pending"
 
     tu_info = TuInfo(include_path)
 
@@ -329,21 +329,20 @@ def process_header(
 
 
 def process_sources(custom_code: str = ""):
-    processed_cache: dict[str, str] = {}
+    manager = multiprocessing.Manager()
+    processed_cache = manager.dict()
     ok = 0
     start = time.time()
     targets = OCCT_INCLUDE_FILES
     # targets = ["/occt/src/AIS/AIS_Circle.hxx"]
 
+    args = [
+        (header_path, processed_cache, custom_code) for (_, header_path, _) in targets
+    ]
+
     with tqdm(total=len(targets), desc="Generating bindings", unit="file") as pbar:
-        with ThreadPoolExecutor() as executor:
-            futures = {
-                executor.submit(process_header, header_path, processed_cache, custom_code)
-                for (_, header_path, _) in targets
-            }
-            for future in as_completed(futures):
-                status, count = future.result()
-                print(status, count)
+        with multiprocessing.Pool() as p:
+            for status, count in p.starmap(process_header, args):
                 pbar.update(count)
                 if status == "ok":
                     ok += count
